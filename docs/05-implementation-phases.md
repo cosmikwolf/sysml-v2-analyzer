@@ -9,7 +9,7 @@
 | 3 | Validation engine | COMPLETE | [phase-3-validation.md](phase-3-validation.md) |
 | 4 | Extraction engine | COMPLETE | [phase-4-extraction.md](phase-4-extraction.md) |
 | 5 | Code generation engine | COMPLETE | [phase-5-codegen.md](phase-5-codegen.md) |
-| 6 | CLI | Not started | [phase-6-cli.md](phase-6-cli.md) |
+| 6 | CLI | COMPLETE | [phase-6-cli.md](phase-6-cli.md) |
 
 ## Phase 1: Adapter crate — COMPLETE
 
@@ -74,17 +74,17 @@
 - [x] Firmware Rust templates: `module.rs.j2`, `state_machine.rs.j2`, `test.rs.j2`
 - [x] Tests: 15 codegen tests (filters, hash, generation, skip, report) + existing validation/extraction tests
 
-## Phase 6: CLI
+## Phase 6: CLI — COMPLETE
 
-- [ ] `clap` derive for argument parsing
-- [ ] `sysml.toml` discovery (walk up from cwd)
-- [ ] `parse` command
-- [ ] `validate` command
-- [ ] `extract` command
-- [ ] `generate` command (full pipeline)
-- [ ] `status` command
-- [ ] `check` command (parse + validate)
-- [ ] `init` command
-- [ ] Exit codes
-- [ ] Text + JSON output formats
-- [ ] Tests: CLI integration tests
+- [x] `clap` derive for argument parsing (global options: --config, --domain, --format, --quiet)
+- [x] `sysml.toml` discovery (walk up from cwd, or --config flag)
+- [x] `parse` command (parse only, no domain required, exit 0/2)
+- [x] `validate` command (parse + validate, exit 0/1)
+- [x] `extract` command (validate + extract to YAML/JSON, exit 0/1)
+- [x] `generate` command (full pipeline: validate → extract → codegen, exit 0/1)
+- [x] `status` command (workspace summary: files, parts, FSMs, ports)
+- [x] `check` command (alias for validate)
+- [x] `init` command (create sysml.toml with domain name)
+- [x] Exit codes (0=success, 1=validation errors, 2=parse errors, 3=config errors)
+- [x] Text + JSON output formats (--format text|json)
+- [x] Known limitation: include/exclude globs from sysml.toml not yet applied (adapter scans full directory)
