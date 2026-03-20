@@ -440,6 +440,13 @@ mod tests {
 
         let report = generate(&extraction, &config, "rust", &out).unwrap();
 
+        // Report should include FSM files
+        assert!(
+            report.generated.iter().any(|g| g.template.contains("state_machine")),
+            "should generate state_machine template files: {:?}",
+            report.generated.iter().map(|g| &g.template).collect::<Vec<_>>()
+        );
+
         // BtA2dpSink has ConnectionFSM
         let fsm_file = out.join("bt_a2dp_sink_connection_fsm.rs");
         assert!(fsm_file.exists(), "FSM file should exist");
