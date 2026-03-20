@@ -45,12 +45,12 @@ Implementation: build a directed graph from adapter's `extract_state_machines()`
 
 ### Port compatibility (generic — no config needed)
 
-| Rule pattern | Check |
-|---|---|
-| `PORT030` | Connected ports have incompatible types |
-| `PORT033` | Port defined but not connected |
+| Rule pattern | Check | Status |
+|---|---|---|
+| `PORT030` | Connected ports have incompatible types | **Deferred** — adapter lacks structured port type info |
+| `PORT033` | Port defined but not connected | Implemented |
 
-Implementation: compare port types from HIR symbols. Cross-reference with connections from `resolve_connections()`.
+Implementation: cross-reference port usage symbols with connections from `resolve_connections()`. PORT030 requires type resolution that the adapter does not currently expose; it will be implemented when the adapter gains structured port type extraction.
 
 ### Workspace rules (generic — no config needed)
 

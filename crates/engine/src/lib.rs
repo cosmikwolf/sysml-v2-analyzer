@@ -5,3 +5,4 @@
 
 pub mod diagnostic;
 pub mod domain;
+pub mod validation;
