@@ -3,7 +3,6 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use sysml_v2_adapter::SysmlWorkspace;
-use sysml_v2_engine::codegen;
 use sysml_v2_engine::diagnostic::Severity;
 use sysml_v2_engine::domain::{DomainConfig, WorkspaceConfig};
 use sysml_v2_engine::extraction;
@@ -60,17 +59,6 @@ enum Command {
         extract_format: ExtractFormat,
     },
 
-    /// Full pipeline: parse → validate → extract → generate
-    Generate {
-        /// Output directory
-        #[arg(long, short, default_value = "output")]
-        output: PathBuf,
-
-        /// Target language
-        #[arg(long, short, default_value = "rust")]
-        language: String,
-    },
-
     /// Show workspace status summary
     Status,
 
@@ -116,7 +104,6 @@ fn run(cli: &Cli) -> Result<ExitCode, CliError> {
             output,
             extract_format,
         } => cmd_extract(cli, output, extract_format),
-        Command::Generate { output, language } => cmd_generate(cli, output, language),
         Command::Status => cmd_status(cli),
         Command::Init { domain } => cmd_init(domain),
     }
@@ -140,9 +127,6 @@ enum CliError {
 
     #[error("extraction error: {0}")]
     Extraction(#[from] extraction::ExtractionError),
-
-    #[error("codegen error: {0}")]
-    Codegen(#[from] codegen::CodegenError),
 
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -387,55 +371,6 @@ fn cmd_extract(
         );
         for path in &written {
             println!("  {}", path.display());
-        }
-    }
-
-    Ok(ExitCode::SUCCESS)
-}
-
-fn cmd_generate(
-    cli: &Cli,
-    output: &Path,
-    language: &str,
-) -> Result<ExitCode, CliError> {
-    let resolved = resolve_config(cli)?;
-    let ws = load_workspace(&resolved)?;
-    let validation_result = validation::validate(&ws, &resolved.domain_config);
-
-    let error_count = validation_result
-        .diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Error)
-        .count();
-
-    if error_count > 0 {
-        for d in &validation_result.diagnostics {
-            if d.severity == Severity::Error {
-                eprintln!("{d}");
-            }
-        }
-        eprintln!("\nGeneration blocked: {error_count} validation error(s)");
-        return Ok(ExitCode::from(1));
-    }
-
-    let extraction_result =
-        extraction::extract(&ws, &resolved.domain_config, &validation_result)?;
-
-    let report =
-        codegen::generate(&extraction_result, &resolved.domain_config, language, output)?;
-
-    if !cli.quiet {
-        if !report.generated.is_empty() {
-            println!("Generated {} file(s):", report.generated.len());
-            for gf in &report.generated {
-                println!("  {} ({})", gf.output_path.display(), gf.template);
-            }
-        }
-        if !report.skipped.is_empty() {
-            println!("Skipped {} file(s) (unchanged):", report.skipped.len());
-            for sf in &report.skipped {
-                println!("  {}", sf.output_path.display());
-            }
         }
     }
 

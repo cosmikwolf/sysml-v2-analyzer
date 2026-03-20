@@ -13,8 +13,6 @@ toml.workspace = true
 thiserror.workspace = true
 petgraph.workspace = true
 serde_yml.workspace = true
-minijinja.workspace = true
-sha2.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

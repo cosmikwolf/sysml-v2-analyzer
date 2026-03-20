@@ -33,6 +33,16 @@ cargo clippy --workspace         # lint — must be clean
 | `docs/05-implementation-phases.md` | Phase checklist with status tracking |
 | `docs/archive/phase-{1..6}-*.md` | Detailed spec for each phase (archived) |
 
+## Testing
+
+Use **proptest** for property-based testing wherever it makes sense. Good candidates:
+- Pure functions with clear invariants (string transformations, type conversions)
+- Parsers (should never panic on arbitrary input)
+- Round-trip properties (serialize → deserialize, extract → merge)
+- Anything with tricky edge cases around string parsing or pattern matching
+
+Proptest is a `[dev-dependencies]` in both the adapter and engine crates. Add `#[cfg(test)] mod property_tests` alongside existing unit test modules.
+
 ## Documentation protocol
 
 **After implementing a feature or fix**, before the final commit:
