@@ -9,5 +9,6 @@ publish.workspace = true
 [dependencies]
 syster-base.workspace = true
 thiserror.workspace = true
+globset.workspace = true
 
 [dev-dependencies]

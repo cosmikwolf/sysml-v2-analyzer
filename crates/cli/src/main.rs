@@ -164,9 +164,10 @@ fn find_config(start: &Path) -> Option<PathBuf> {
     }
 }
 
-/// Resolve workspace config, domain config, and workspace root.
+/// Resolved configuration from sysml.toml and domain directory.
 struct ResolvedConfig {
     domain_config: DomainConfig,
+    workspace_config: WorkspaceConfig,
     workspace_root: PathBuf,
 }
 
@@ -207,12 +208,22 @@ fn resolve_config(cli: &Cli) -> Result<ResolvedConfig, CliError> {
 
     Ok(ResolvedConfig {
         domain_config,
+        workspace_config: ws_config,
         workspace_root,
     })
 }
 
-fn load_workspace(workspace_root: &Path) -> Result<SysmlWorkspace, CliError> {
-    Ok(SysmlWorkspace::load(workspace_root)?)
+fn load_workspace(resolved: &ResolvedConfig) -> Result<SysmlWorkspace, CliError> {
+    let ws = &resolved.workspace_config;
+    if !ws.include.is_empty() || !ws.exclude.is_empty() {
+        Ok(SysmlWorkspace::load_filtered(
+            &resolved.workspace_root,
+            &ws.include,
+            &ws.exclude,
+        )?)
+    } else {
+        Ok(SysmlWorkspace::load(&resolved.workspace_root)?)
+    }
 }
 
 // ── Command implementations ─────────────────────────────────────────
@@ -261,7 +272,7 @@ fn cmd_parse(cli: &Cli, path: &Path) -> Result<ExitCode, CliError> {
 
 fn cmd_validate(cli: &Cli) -> Result<ExitCode, CliError> {
     let resolved = resolve_config(cli)?;
-    let ws = load_workspace(&resolved.workspace_root)?;
+    let ws = load_workspace(&resolved)?;
     let result = validation::validate(&ws, &resolved.domain_config);
 
     let error_count = result
@@ -339,7 +350,7 @@ fn cmd_extract(
     extract_format: &ExtractFormat,
 ) -> Result<ExitCode, CliError> {
     let resolved = resolve_config(cli)?;
-    let ws = load_workspace(&resolved.workspace_root)?;
+    let ws = load_workspace(&resolved)?;
     let validation_result = validation::validate(&ws, &resolved.domain_config);
 
     let error_count = validation_result
@@ -388,7 +399,7 @@ fn cmd_generate(
     language: &str,
 ) -> Result<ExitCode, CliError> {
     let resolved = resolve_config(cli)?;
-    let ws = load_workspace(&resolved.workspace_root)?;
+    let ws = load_workspace(&resolved)?;
     let validation_result = validation::validate(&ws, &resolved.domain_config);
 
     let error_count = validation_result
@@ -433,7 +444,7 @@ fn cmd_generate(
 
 fn cmd_status(cli: &Cli) -> Result<ExitCode, CliError> {
     let resolved = resolve_config(cli)?;
-    let ws = load_workspace(&resolved.workspace_root)?;
+    let ws = load_workspace(&resolved)?;
 
     let file_count = ws.files().len();
     let part_defs = ws.symbols_of_kind(sysml_v2_adapter::SymbolKind::PartDefinition);

@@ -29,3 +29,4 @@ clap = { version = "4", features = ["derive"] }
 petgraph = "0.7"
 minijinja = { version = "2", features = ["loader"] }
 sha2 = "0.10"
+globset = "0.4"

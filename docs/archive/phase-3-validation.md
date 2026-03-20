@@ -47,10 +47,10 @@ Implementation: build a directed graph from adapter's `extract_state_machines()`
 
 | Rule pattern | Check | Status |
 |---|---|---|
-| `PORT030` | Connected ports have incompatible types | **Deferred** — adapter lacks structured port type info |
+| `PORT030` | Connected ports have incompatible types | Implemented |
 | `PORT033` | Port defined but not connected | Implemented |
 
-Implementation: cross-reference port usage symbols with connections from `resolve_connections()`. PORT030 requires type resolution that the adapter does not currently expose; it will be implemented when the adapter gains structured port type extraction.
+Implementation: cross-reference port usage symbols with connections from `resolve_connections()`. PORT030 resolves port types via `PortUsage.supertypes[0]`, including compound endpoints (`subpart.port`) by looking up the sub-part's PartDefinition.
 
 ### Workspace rules (generic — no config needed)
 

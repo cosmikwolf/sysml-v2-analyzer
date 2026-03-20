@@ -94,6 +94,75 @@ impl SysmlWorkspace {
         Ok(SysmlWorkspace { files })
     }
 
+    /// Load `.sysml` files from a directory, filtered by include/exclude glob patterns.
+    ///
+    /// - `include`: if non-empty, only files matching at least one pattern are loaded.
+    ///   Patterns are matched against paths relative to `root`.
+    /// - `exclude`: files matching any pattern are skipped (applied after include).
+    pub fn load_filtered(
+        root: &Path,
+        include: &[String],
+        exclude: &[String],
+    ) -> Result<Self, AdapterError> {
+        let mut sysml_paths: Vec<PathBuf> = Vec::new();
+        collect_sysml_files(root, &mut sysml_paths)?;
+
+        // Apply glob filters on paths relative to root.
+        // Canonicalize both root and each path for reliable prefix stripping.
+        let canonical_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+
+        let relative_path = |p: &Path| -> String {
+            let canonical = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+            canonical
+                .strip_prefix(&canonical_root)
+                .unwrap_or(&canonical)
+                .to_string_lossy()
+                .to_string()
+        };
+
+        if !include.is_empty() {
+            let set = build_glob_set(include);
+            sysml_paths.retain(|p| set.is_match(relative_path(p)));
+        }
+
+        if !exclude.is_empty() {
+            let set = build_glob_set(exclude);
+            sysml_paths.retain(|p| !set.is_match(relative_path(p)));
+        }
+
+        if sysml_paths.is_empty() {
+            return Err(AdapterError::EmptyWorkspace {
+                path: root.to_path_buf(),
+            });
+        }
+
+        sysml_paths.sort();
+
+        let mut files = Vec::with_capacity(sysml_paths.len());
+        for (idx, path) in sysml_paths.into_iter().enumerate() {
+            let source = std::fs::read_to_string(&path).map_err(|e| AdapterError::FileRead {
+                path: path.clone(),
+                source: e,
+            })?;
+
+            let parse = parser::parse_sysml(&source);
+            let syntax_file = SyntaxFile::sysml(&source);
+            let file_id = FileId::new(idx as u32);
+            let symbols = hir::file_symbols(file_id, &syntax_file);
+
+            files.push(ParsedFile {
+                path,
+                source,
+                parse,
+                syntax_file,
+                symbols,
+                file_id,
+            });
+        }
+
+        Ok(SysmlWorkspace { files })
+    }
+
     /// Load a workspace from explicit source strings (for testing).
     pub fn from_sources(sources: Vec<(PathBuf, String)>) -> Self {
         let mut files = Vec::with_capacity(sources.len());
@@ -236,6 +305,23 @@ fn collect_sysml_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), Adapter
     Ok(())
 }
 
+/// Build a `GlobSet` from a list of glob pattern strings.
+/// Invalid patterns are silently ignored.
+fn build_glob_set(patterns: &[String]) -> globset::GlobSet {
+    let mut builder = globset::GlobSetBuilder::new();
+    for pattern in patterns {
+        if let Ok(glob) = globset::GlobBuilder::new(pattern)
+            .literal_separator(false)
+            .build()
+        {
+            builder.add(glob);
+        }
+    }
+    builder.build().unwrap_or_else(|_| {
+        globset::GlobSetBuilder::new().build().unwrap()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,11 +452,62 @@ mod tests {
         let dir = fixtures_dir();
         if dir.exists() {
             let ws = SysmlWorkspace::load(&dir).expect("should load fixtures directory");
-            // 7 .sysml files in fixtures (including malformed and large_model)
+            // 7+ .sysml files in fixtures (including malformed and large_model)
             assert!(
                 ws.files().len() >= 6,
                 "should load at least 6 files, found {}",
                 ws.files().len()
+            );
+        }
+    }
+
+    #[test]
+    fn test_load_filtered_include() {
+        let dir = fixtures_dir();
+        if dir.exists() {
+            let include = vec!["bt_a2dp_sink.sysml".to_string()];
+            let ws = SysmlWorkspace::load_filtered(&dir, &include, &[]).unwrap();
+            assert_eq!(ws.files().len(), 1, "should load only bt_a2dp_sink.sysml");
+            assert!(ws.files()[0].path.to_string_lossy().contains("bt_a2dp_sink"));
+        }
+    }
+
+    #[test]
+    fn test_load_filtered_exclude() {
+        let dir = fixtures_dir();
+        if dir.exists() {
+            let all_count = SysmlWorkspace::load(&dir).unwrap().files().len();
+            let exclude = vec!["malformed.sysml".to_string(), "large_model.sysml".to_string()];
+            let ws = SysmlWorkspace::load_filtered(&dir, &[], &exclude).unwrap();
+            assert_eq!(
+                ws.files().len(),
+                all_count - 2,
+                "should exclude malformed and large_model"
+            );
+        }
+    }
+
+    #[test]
+    fn test_load_filtered_wildcard() {
+        let dir = fixtures_dir();
+        if dir.exists() {
+            let include = vec!["**/*.sysml".to_string()];
+            let all_count = SysmlWorkspace::load(&dir).unwrap().files().len();
+            let ws = SysmlWorkspace::load_filtered(&dir, &include, &[]).unwrap();
+            assert_eq!(ws.files().len(), all_count, "** should match all files");
+        }
+    }
+
+    #[test]
+    fn test_load_filtered_empty_patterns() {
+        let dir = fixtures_dir();
+        if dir.exists() {
+            let all_count = SysmlWorkspace::load(&dir).unwrap().files().len();
+            let ws = SysmlWorkspace::load_filtered(&dir, &[], &[]).unwrap();
+            assert_eq!(
+                ws.files().len(),
+                all_count,
+                "empty patterns → load everything"
             );
         }
     }

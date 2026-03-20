@@ -41,7 +41,7 @@
 - [x] Layer dependency checking: LAYER001 (illegal dep), LAYER002 (missing layer), LAYER003 (cycle via petgraph), LAYER004 (same-layer)
 - [x] Required metadata checking: META010 (missing required annotation)
 - [x] FSM well-formedness: FSM020 (no initial), FSM021 (unreachable), FSM022 (non-deterministic), FSM024 (invalid target), FSM025 (terminal)
-- [x] Port connectivity: PORT033 (unconnected port). PORT030 (type incompatibility) deferred — adapter lacks structured port type info
+- [x] Port connectivity: PORT033 (unconnected port), PORT030 (type incompatibility via PortUsage supertypes resolution)
 - [x] Workspace rules: WS050 (duplicate qualified names among definitions), WS051 (unused part definition)
 - [x] Rule severity overrides from config (`effective_severity()` helper)
 - [x] Text output formatting (Diagnostic Display impl from Phase 2)
@@ -87,4 +87,4 @@
 - [x] `init` command (create sysml.toml with domain name)
 - [x] Exit codes (0=success, 1=validation errors, 2=parse errors, 3=config errors)
 - [x] Text + JSON output formats (--format text|json)
-- [x] Known limitation: include/exclude globs from sysml.toml not yet applied (adapter scans full directory)
+- [x] Include/exclude glob filtering from sysml.toml (`SysmlWorkspace::load_filtered` via globset)
