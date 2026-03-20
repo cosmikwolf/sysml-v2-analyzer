@@ -84,3 +84,61 @@ mod tests {
         assert!(header.contains("DO NOT EDIT"));
     }
 }
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn hash_is_deterministic(s in ".*") {
+            let h1 = compute_spec_hash(&s);
+            let h2 = compute_spec_hash(&s);
+            prop_assert_eq!(h1, h2);
+        }
+
+        #[test]
+        fn hash_is_64_hex_chars(s in ".*") {
+            let h = compute_spec_hash(&s);
+            prop_assert_eq!(h.len(), 64, "hash length should be 64, got {}", h.len());
+            prop_assert!(
+                h.chars().all(|c| c.is_ascii_hexdigit()),
+                "hash '{}' contains non-hex chars",
+                h,
+            );
+        }
+
+        #[test]
+        fn hash_is_lowercase(s in ".*") {
+            let h = compute_spec_hash(&s);
+            prop_assert!(
+                !h.chars().any(|c| c.is_uppercase()),
+                "hash should be lowercase hex",
+            );
+        }
+
+        #[test]
+        fn header_round_trips_through_check(s in "[a-zA-Z0-9]{1,50}") {
+            let hash = compute_spec_hash(&s);
+            let header = spec_hash_header(&hash);
+            let content = format!("{}fn main() {{}}", header);
+
+            let tmp = std::env::temp_dir().join(format!(
+                "proptest-hash-{}",
+                std::process::id()
+            ));
+            std::fs::create_dir_all(&tmp).unwrap();
+            let file = tmp.join("test.rs");
+            std::fs::write(&file, &content).unwrap();
+
+            prop_assert!(
+                check_spec_hash(&file, &hash),
+                "header round-trip failed for input '{}'",
+                s,
+            );
+
+            let _ = std::fs::remove_dir_all(&tmp);
+        }
+    }
+}

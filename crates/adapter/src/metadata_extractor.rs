@@ -453,3 +453,82 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn parse_value_never_panics(s in ".*") {
+            // parse_value should handle any input without panicking
+            let _ = parse_value(&s);
+        }
+
+        #[test]
+        fn parse_true_false_is_boolean(b in prop::bool::ANY) {
+            let s = if b { "true" } else { "false" };
+            prop_assert_eq!(parse_value(s), MetadataValue::Boolean(b));
+        }
+
+        #[test]
+        fn parse_integer_roundtrips(n in -1000000i64..1000000) {
+            let s = n.to_string();
+            prop_assert_eq!(
+                parse_value(&s),
+                MetadataValue::Integer(n),
+                "parse_value('{}') should be Integer({})",
+                s, n,
+            );
+        }
+
+        #[test]
+        fn parse_quoted_string_unquotes(s in "[a-zA-Z0-9 ]{0,30}") {
+            let quoted = format!("\"{}\"", s);
+            match parse_value(&quoted) {
+                MetadataValue::String(inner) => {
+                    prop_assert_eq!(inner, s, "quoted string not unquoted properly");
+                }
+                other => prop_assert!(false, "expected String, got {:?}", other),
+            }
+        }
+
+        #[test]
+        fn parse_enum_ref_format(
+            t in "[A-Z][a-zA-Z]{1,10}",
+            v in "[a-z][a-zA-Z]{1,10}"
+        ) {
+            let s = format!("{}::{}", t, v);
+            match parse_value(&s) {
+                MetadataValue::EnumRef { enum_type, variant } => {
+                    prop_assert_eq!(enum_type, t);
+                    prop_assert_eq!(variant, v);
+                }
+                other => prop_assert!(false, "expected EnumRef for '{}', got {:?}", s, other),
+            }
+        }
+
+        #[test]
+        fn parse_empty_tuple(s in prop::string::string_regex(r"\(\s*\)").unwrap()) {
+            match parse_value(&s) {
+                MetadataValue::Tuple(vals) => {
+                    prop_assert!(vals.is_empty(), "empty tuple should have no elements");
+                }
+                other => prop_assert!(false, "expected Tuple for '{}', got {:?}", s, other),
+            }
+        }
+
+        #[test]
+        fn parse_whitespace_trimmed(s in " {0,5}(true|false|42) {0,5}") {
+            // parse_value trims whitespace, so " true " should equal "true"
+            let result = parse_value(&s);
+            let trimmed_result = parse_value(s.trim());
+            prop_assert_eq!(
+                result, trimmed_result,
+                "whitespace should not affect result: '{}'",
+                s,
+            );
+        }
+    }
+}

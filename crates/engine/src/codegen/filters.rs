@@ -15,18 +15,16 @@ pub fn snake_case(value: &str) -> String {
 
     for (i, ch) in value.chars().enumerate() {
         if ch == '_' || ch == '-' || ch == ' ' {
-            result.push('_');
+            // Collapse consecutive separators, skip leading separators
+            if !result.is_empty() && !prev_was_separator {
+                result.push('_');
+            }
             prev_was_upper = false;
             prev_was_separator = true;
             continue;
         }
 
         if ch.is_uppercase() {
-            // Insert underscore before uppercase if:
-            // - not at start
-            // - previous char was lowercase, OR
-            // - previous was uppercase but next is lowercase (e.g. "FSM" → "fs_m" is wrong,
-            //   but "FSMState" → "fsm_state" needs underscore before "State")
             if !prev_was_separator && i > 0 {
                 let next_is_lower = value.chars().nth(i + 1).is_some_and(|c| c.is_lowercase());
                 if !prev_was_upper || next_is_lower {
@@ -40,6 +38,11 @@ pub fn snake_case(value: &str) -> String {
             prev_was_upper = false;
         }
         prev_was_separator = false;
+    }
+
+    // Remove trailing underscore
+    if result.ends_with('_') {
+        result.pop();
     }
 
     result
@@ -147,5 +150,153 @@ mod tests {
     fn test_map_type_unknown() {
         let type_map = HashMap::new();
         assert_eq!(map_type("CustomType", &type_map), "CustomType");
+    }
+}
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Strategy for generating realistic identifier strings.
+    fn identifier() -> impl Strategy<Value = String> {
+        prop::string::string_regex("[A-Za-z][A-Za-z0-9_]{0,30}")
+            .unwrap()
+    }
+
+    proptest! {
+        // ── snake_case properties ──
+
+        #[test]
+        fn snake_case_has_no_uppercase(s in identifier()) {
+            let result = snake_case(&s);
+            prop_assert!(
+                !result.chars().any(|c| c.is_uppercase()),
+                "snake_case('{}') = '{}' contains uppercase",
+                s, result,
+            );
+        }
+
+        #[test]
+        fn snake_case_is_idempotent(s in identifier()) {
+            let once = snake_case(&s);
+            let twice = snake_case(&once);
+            prop_assert_eq!(
+                &once, &twice,
+                "snake_case is not idempotent: snake_case('{}') = '{}', snake_case('{}') = '{}'",
+                s, once, once, twice,
+            );
+        }
+
+        #[test]
+        fn snake_case_no_double_underscores(s in identifier()) {
+            let result = snake_case(&s);
+            prop_assert!(
+                !result.contains("__"),
+                "snake_case('{}') = '{}' contains double underscores",
+                s, result,
+            );
+        }
+
+        #[test]
+        fn snake_case_no_leading_underscore(s in identifier()) {
+            let result = snake_case(&s);
+            prop_assert!(
+                !result.starts_with('_'),
+                "snake_case('{}') = '{}' starts with underscore",
+                s, result,
+            );
+        }
+
+        #[test]
+        fn snake_case_preserves_emptiness(s in ".*") {
+            let result = snake_case(&s);
+            if s.is_empty() {
+                prop_assert!(result.is_empty());
+            }
+        }
+
+        // ── pascal_case properties ──
+
+        #[test]
+        fn pascal_case_is_idempotent(s in identifier()) {
+            let once = pascal_case(&s);
+            let twice = pascal_case(&once);
+            prop_assert_eq!(
+                &once, &twice,
+                "pascal_case not idempotent: pascal_case('{}') = '{}', pascal_case('{}') = '{}'",
+                s, once, once, twice,
+            );
+        }
+
+        #[test]
+        fn pascal_case_starts_uppercase(s in identifier()) {
+            let result = pascal_case(&s);
+            if !result.is_empty() {
+                prop_assert!(
+                    result.chars().next().unwrap().is_uppercase(),
+                    "pascal_case('{}') = '{}' does not start with uppercase",
+                    s, result,
+                );
+            }
+        }
+
+        #[test]
+        fn pascal_case_no_underscores(s in identifier()) {
+            let result = pascal_case(&s);
+            prop_assert!(
+                !result.contains('_'),
+                "pascal_case('{}') = '{}' contains underscores",
+                s, result,
+            );
+        }
+
+        // ── screaming_snake properties ──
+
+        #[test]
+        fn screaming_snake_all_uppercase(s in identifier()) {
+            let result = screaming_snake(&s);
+            prop_assert!(
+                !result.chars().any(|c| c.is_lowercase()),
+                "screaming_snake('{}') = '{}' contains lowercase",
+                s, result,
+            );
+        }
+
+        #[test]
+        fn screaming_snake_equals_snake_uppercased(s in identifier()) {
+            let result = screaming_snake(&s);
+            let expected = snake_case(&s).to_uppercase();
+            prop_assert_eq!(
+                result, expected,
+                "screaming_snake('{}') should equal snake_case uppercased",
+                s,
+            );
+        }
+
+        // ── Cross-function properties ──
+
+        #[test]
+        fn snake_then_pascal_preserves_alpha_content(s in identifier()) {
+            // The alphabetic characters should be preserved (case may change)
+            let snake = snake_case(&s);
+            let pascal = pascal_case(&snake);
+            let snake_alpha: String = snake.chars().filter(|c| c.is_alphanumeric()).collect();
+            let pascal_alpha: String = pascal.chars().filter(|c| c.is_alphanumeric()).collect();
+            prop_assert_eq!(
+                snake_alpha.to_lowercase(),
+                pascal_alpha.to_lowercase(),
+                "round-trip snake→pascal lost characters for '{}'",
+                s,
+            );
+        }
+
+        // ── map_type properties ──
+
+        #[test]
+        fn map_type_passthrough_when_not_in_map(s in identifier()) {
+            let empty_map = HashMap::new();
+            prop_assert_eq!(map_type(&s, &empty_map), s);
+        }
     }
 }
