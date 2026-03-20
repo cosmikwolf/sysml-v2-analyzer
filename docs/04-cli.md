@@ -17,9 +17,9 @@ Commands:
   parse       Parse .sysml files and report errors
   validate    Run domain validation rules
   extract     Extract models to YAML/JSON
-  generate    Full pipeline: validate → extract → generate source code
+  audit       Compare spec against source code
   status      Show workspace status (files, modules, diagnostics summary)
-  check       Parse + validate (no extraction or generation)
+  check       Parse + validate (no extraction or audit)
   init        Initialize a new sysml.toml in the current directory
 ```
 
@@ -74,15 +74,22 @@ Extracted 4 modules, 2 state machines, 4 interfaces
 Output: build/extracted/
 ```
 
-### `generate`
+### `audit`
 
-Full pipeline: validate → extract → render templates → write source files.
+Full pipeline: validate → extract → compare spec against source code.
 
 ```
-$ sysml-v2-analyzer generate -o src/generated
-Generated 4 modules (8 files), 2 state machines (2 files)
-Skipped 3 unchanged files
-Output: src/generated/
+$ sysml-v2-analyzer audit
+BtA2dpSink (src/bt_a2dp_sink.rs):
+  ✓ struct BtA2dpSink
+  ✓ action Init
+  ~ action Start — spec: (self: BtA2dpSink), code: (self: &mut Self)
+
+$ sysml-v2-analyzer audit --uncovered
+# also shows code items with no spec counterpart
+
+$ sysml-v2-analyzer audit BtA2dpSink
+# audit a single module
 ```
 
 ### `status`
@@ -101,7 +108,7 @@ Diagnostics: 0 errors, 1 warning
 
 ### `check`
 
-Parse + validate without extraction or generation. Fast feedback loop.
+Parse + validate without extraction. Fast feedback loop.
 
 ### `init`
 
@@ -119,6 +126,6 @@ Interactive setup: creates `sysml.toml` in the current directory, asks which dom
 ## Dependencies
 
 - `sysml-v2-adapter` — workspace loading (for `parse`)
-- `sysml-v2-engine` — validation, extraction, codegen
+- `sysml-v2-engine` — validation, extraction, audit
 - `clap` — argument parsing with derive macros
 - `serde_json` — JSON output format

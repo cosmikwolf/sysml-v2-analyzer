@@ -1,6 +1,6 @@
 # sysml-v2-analyzer
 
-A Rust toolchain for analyzing SysML v2 specifications and generating code from them. Domain-agnostic at its core — domain-specific rules, metadata, and codegen templates are provided as plugins. Built on [syster-base](https://crates.io/crates/syster-base) (0.4.0-alpha).
+A Rust toolchain for analyzing SysML v2 specifications and auditing source code against them. Domain-agnostic at its core — domain-specific rules and metadata are provided as plugins. Built on [syster-base](https://crates.io/crates/syster-base) (0.4.0-alpha).
 
 ## What it does
 
@@ -88,7 +88,7 @@ syster-base (external)       ← SysML v2 parser + HIR
   │ engine  │                ← domain-agnostic pipeline framework
   └────┬────┘
        │
-  domains/<name>/            ← domain-specific config + templates
+  domains/<name>/            ← domain-specific config + metadata library
        │
   ┌────┴────┐
   │   cli   │                ← loads domain, runs pipeline
@@ -100,11 +100,11 @@ syster-base (external)       ← SysML v2 parser + HIR
 | Layer | Component | Domain scope |
 |---|---|---|
 | Parsing + querying | `adapter` crate + syster-base | **General SysML v2** — works for any domain |
-| Pipeline framework | `engine` crate | **General** — validation, extraction, codegen engines are domain-agnostic |
-| Domain rules + templates | `domains/<name>/` | **Domain-specific** — config, metadata library, codegen templates |
+| Pipeline framework | `engine` crate | **General** — validation, extraction, audit engines are domain-agnostic |
+| Domain rules + config | `domains/<name>/` | **Domain-specific** — config, metadata library |
 | Orchestration | `cli` crate | **General** — loads domain from `sysml.toml`, runs pipeline |
 
-Adding a new domain = creating a directory under `domains/` with a `domain.toml`, a `.sysml` metadata library, and MiniJinja templates. No Rust code required.
+Adding a new domain = creating a directory under `domains/` with a `domain.toml` (including `[source]` config) and a `.sysml` metadata library. No Rust code required.
 
 ## Crates
 

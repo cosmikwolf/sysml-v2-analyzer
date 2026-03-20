@@ -2,13 +2,13 @@
 
 ## Overview
 
-This is a Rust workspace that reads SysML v2 specs and transforms them through a domain-agnostic pipeline: parse → validate → extract → generate. See `docs/00-architecture.md` for the full system diagram.
+This is a Rust workspace that reads SysML v2 specs and transforms them through a domain-agnostic pipeline: parse → validate → extract → audit. See `docs/00-architecture.md` for the full system diagram.
 
 ## Workspace structure
 
 ```
 crates/adapter/   — syster-base wrapper (parsing, symbol queries, metadata extraction)
-crates/engine/    — domain-agnostic pipeline (validation, extraction, codegen)
+crates/engine/    — domain-agnostic pipeline (validation, extraction, audit)
 crates/cli/       — binary entry point
 domains/          — domain plugin directories (firmware/, template/)
 docs/             — architecture docs, decision records, phase specs
@@ -29,7 +29,7 @@ cargo clippy --workspace         # lint — must be clean
 | File | Purpose |
 |---|---|
 | `docs/00-architecture.md` | System diagram, crate roles, data flow |
-| `docs/decisions.md` | Architecture Decision Records (D1–D8) |
+| `docs/decisions.md` | Architecture Decision Records (D1–D10) |
 | `docs/05-implementation-phases.md` | Phase checklist with status tracking |
 | `docs/archive/phase-{1..6}-*.md` | Detailed spec for each phase (archived) |
 

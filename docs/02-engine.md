@@ -1,12 +1,12 @@
 # Component: engine
 
 **Crate:** `sysml-v2-engine`
-**Domain scope:** General-purpose pipeline framework — domain rules come from config + templates
+**Domain scope:** General-purpose pipeline framework — domain rules come from config
 **Status:** Implemented
 
 ## Purpose
 
-Domain-agnostic pipeline framework that loads a domain definition (`domain.toml` + templates) and runs validation, extraction, and code generation. The engine doesn't know about firmware, automotive, or any specific domain — it applies rules and templates defined externally.
+Domain-agnostic pipeline framework that loads a domain definition (`domain.toml`) and runs validation, extraction, and audit. The engine doesn't know about firmware, automotive, or any specific domain — it applies rules defined externally.
 
 ## Modules
 
@@ -15,7 +15,7 @@ Domain-agnostic pipeline framework that loads a domain definition (`domain.toml`
 | `domain` | Load and merge `domain.toml` + `sysml.toml` into `DomainConfig` |
 | `validation` | Rule engine: layer dependency checking, required metadata, FSM well-formedness |
 | `extraction` | Flatten metadata annotations + connections + FSMs into structured output |
-| `codegen` | MiniJinja template rendering with domain-specific context |
+| `audit` | Tree-sitter source parsing and spec-vs-code comparison |
 | `diagnostic` | Shared `Diagnostic` type used across all stages |
 
 ## Domain config loading (`domain.rs`)
@@ -28,7 +28,7 @@ pub struct DomainConfig {
     pub required_metadata: RequiredMetadataConfig,
     pub type_map: HashMap<String, HashMap<String, String>>,  // language → SysML type → target type
     pub validation_rules: HashMap<String, Severity>,
-    pub template_dir: PathBuf,
+    pub source: SourceConfig,
 }
 
 pub struct LayerConfig {
@@ -93,31 +93,28 @@ pub fn extract(
 
 Extraction only proceeds if validation passes (no errors). Warnings are allowed.
 
-## Code generation engine (`codegen.rs`)
+## Audit engine (`audit/`)
 
-MiniJinja-based template rendering:
+Tree-sitter based spec-vs-code comparison:
 
 ```rust
-pub struct CodegenContext {
-    pub module: ExtractedModule,
-    pub domain: DomainConfig,
-    pub target_language: String,
-}
-
-pub fn generate(
+pub fn audit(
     extraction: &ExtractionResult,
     config: &DomainConfig,
-    language: &str,
-    output_dir: &Path,
-) -> Result<GenerationReport, EngineError>;
+    workspace_root: &Path,
+    languages_dir: &Path,
+    show_uncovered: bool,
+    expand: bool,
+    module_filter: Option<&str>,
+) -> Result<AuditReport, AuditError>;
 ```
 
 The engine:
-1. Creates a MiniJinja `Environment` with `trim_blocks`, `lstrip_blocks`, no auto-escape
-2. Loads templates from `domains/<name>/templates/<language>/`
-3. Registers standard filters: `snake_case`, `pascal_case`, `screaming_snake`, `map_type`
-4. Renders each template with the extracted module data as context
-5. Writes output files, skipping unchanged files (spec-hash fingerprinting)
+1. Resolves source file paths from module names using `SourceConfig` (root, layout, language)
+2. Parses source files using tree-sitter with compiled-in grammars (Rust, C)
+3. Loads query patterns from `languages/<lang>/audit.scm` to extract `CodeConstruct`s (functions, structs, enums, impl blocks)
+4. Compares extracted spec modules against parsed code constructs via `compare_module()`
+5. Reports `Match`, `Missing`, `Mismatch`, and optionally `Uncovered` items per module
 
 ## Diagnostics (`diagnostic.rs`)
 
@@ -138,7 +135,7 @@ pub enum Severity { Error, Warning, Info }
 ## Dependencies
 
 - `sysml-v2-adapter` — workspace loading, metadata, connections, FSMs
-- `minijinja` — template engine
+- `tree-sitter` + `tree-sitter-rust` + `tree-sitter-c` — source code parsing for audit
 - `petgraph` — graph algorithms for cycle detection, reachability
 - `serde` + `toml` + `serde_json` + `serde_yaml` — config parsing, extraction output
 - `thiserror` — error types
@@ -147,5 +144,5 @@ pub enum Severity { Error, Warning, Info }
 
 1. **The engine never imports domain-specific constants.** No `"MemoryModel"`, `"ISRSafe"`, or `"driver"` strings in engine code. All domain knowledge comes from `DomainConfig`.
 2. **Validation rules are parameterized.** "Required metadata for parts" reads the list from config, not a hardcoded array.
-3. **Templates are loaded at runtime.** The engine doesn't compile templates into the binary.
+3. **Audit queries are loaded at runtime from `languages/<lang>/audit.scm`.** The engine doesn't compile queries into the binary.
 4. **Extraction output is a generic tree of metadata key-value pairs.** The engine doesn't know what the keys mean — it just flattens what the adapter gives it.

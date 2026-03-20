@@ -3,7 +3,7 @@
 //! A domain is a directory under `domains/` containing:
 //! - `domain.toml` — domain-level config (layers, rules, type maps)
 //! - A metadata library `.sysml` file
-//! - `templates/` — code generation templates
+//! - `[source]` config — source code layout for audit
 //!
 //! A workspace file (`sysml.toml`) at the project root selects a domain
 //! and optionally overrides validation severity and required metadata.

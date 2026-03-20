@@ -5,10 +5,10 @@
 sysml-v2-analyzer reads SysML v2 specifications and transforms them through a pipeline:
 
 ```
-.sysml files  →  parse  →  validate  →  extract  →  generate  →  source code
+.sysml files  →  parse  →  validate  →  extract  →  audit  →  report
 ```
 
-The pipeline is **domain-agnostic at its core**. Domain-specific knowledge (what to validate, what to extract, how to generate code) lives in a separate `domains/` directory as configuration and templates — not compiled into the binary.
+The pipeline is **domain-agnostic at its core**. Domain-specific knowledge (what to validate, what to extract, how to audit code) lives in a separate `domains/` directory as configuration — not compiled into the binary.
 
 ## System diagram
 
@@ -24,14 +24,14 @@ The pipeline is **domain-agnostic at its core**. Domain-specific knowledge (what
    │  ├── validation engine (layer deps, required metadata,    │
    │  │                      FSM checks, port compat)          │
    │  ├── extraction engine (flatten to YAML/JSON)             │
-   │  └── codegen engine (MiniJinja template rendering)        │
+   │  └── audit engine (tree-sitter source comparison)          │
    └───────────┬──────────────────────────┬───────────────────┘
                │                          │
    ┌───────────┴───────────┐   ┌──────────┴──────────────────┐
    │  adapter crate         │   │  domains/<name>/             │
    │  Domain-agnostic       │   │  ├── domain.toml (config)    │
    │  SysML v2 query library│   │  ├── *.sysml (metadata lib)  │
-   │  (syster-base wrapper) │   │  └── templates/*.j2           │
+   │  (syster-base wrapper) │   │  └── [source] config            │
    └───────────┬───────────┘   │                               │
                │                │  firmware/ auto/ template/ ...│
    ┌───────────┴───────────┐   └───────────────────────────────┘
@@ -45,14 +45,13 @@ The pipeline is **domain-agnostic at its core**. Domain-specific knowledge (what
 | Layer | Crate | Domain scope |
 |---|---|---|
 | Parsing + querying | `adapter` + syster-base | **General SysML v2** — works for any domain |
-| Pipeline framework | `engine` | **General** — validation engine, extraction engine, codegen engine are domain-agnostic |
-| Domain rules + templates | `domains/<name>/` | **Domain-specific** — config, metadata library, codegen templates |
+| Pipeline framework | `engine` | **General** — validation engine, extraction engine, audit engine are domain-agnostic |
+| Domain rules + config | `domains/<name>/` | **Domain-specific** — config, metadata library |
 | Orchestration | `cli` | **General** — loads domain from `sysml.toml`, runs pipeline |
 
 Adding a new domain = creating a new directory under `domains/` with:
-- `domain.toml` — layer hierarchy, required metadata, type maps
+- `domain.toml` — layer hierarchy, required metadata, type maps, `[source]` config
 - `*.sysml` — metadata library defining domain-specific annotations
-- `templates/<language>/*.j2` — MiniJinja codegen templates
 
 No Rust code required for most domains.
 
@@ -70,17 +69,10 @@ tools/sysml-v2-analyzer/
 ├── domains/
 │   ├── template/                # minimal example domain (also used by engine tests)
 │   │   ├── domain.toml
-│   │   ├── template_library.sysml
-│   │   └── templates/
-│   │       └── rust/
-│   │           └── module.rs.j2
+│   │   └── template_library.sysml
 │   └── firmware/                # firmware domain plugin
 │       ├── domain.toml
-│       ├── firmware_library.sysml
-│       └── templates/
-│           └── rust/
-│               ├── module.rs.j2
-│               └── ...
+│       └── firmware_library.sysml
 └── tests/
     └── fixtures/                # SysML v2 test fixtures (adapter tests)
 ```
@@ -103,20 +95,13 @@ Two config files with different purposes:
 
 The engine merges: domain defaults ← project overrides.
 
-## Template engine
-
-MiniJinja (Jinja2-compatible) with:
-- `trim_blocks` + `lstrip_blocks` enabled for clean codegen output
-- Auto-escape disabled (code generation, not HTML)
-- Templates loaded from `domains/<name>/templates/<language>/`
-- `.j2` extension with double-extension naming (`module.rs.j2`)
-
 ## Key dependencies
 
 | Dependency | Version | Purpose |
 |---|---|---|
 | syster-base | `=0.4.0-alpha` (pinned) | SysML v2 parser + HIR |
-| minijinja | latest | Template engine for code generation |
+| tree-sitter | latest | Source code parsing for audit |
+| tree-sitter-rust, tree-sitter-c | latest | Language grammars for tree-sitter |
 | petgraph | 0.7 | Graph algorithms (cycle detection, reachability) |
 | clap | 4 | CLI argument parsing |
 | serde + toml | latest | Configuration parsing |
@@ -126,7 +111,7 @@ MiniJinja (Jinja2-compatible) with:
 
 | Document | Purpose |
 |---|---|
-| [decisions.md](decisions.md) | Architecture decision record (D1–D8) |
+| [decisions.md](decisions.md) | Architecture decision record (D1–D10) |
 | [01-adapter.md](01-adapter.md) | Adapter crate architecture |
 | [02-engine.md](02-engine.md) | Engine crate architecture |
 | [03-domains.md](03-domains.md) | Domain plugin system |

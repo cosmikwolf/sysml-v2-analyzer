@@ -6,27 +6,14 @@
 
 ## Purpose
 
-A domain plugin provides all the domain-specific knowledge the engine needs: what layers exist, what metadata is required, how to map types, and how to generate code. Domains are directories, not Rust crates — adding a domain requires no compilation.
+A domain plugin provides all the domain-specific knowledge the engine needs: what layers exist, what metadata is required, how to map types, and how to audit source code. Domains are directories, not Rust crates — adding a domain requires no compilation.
 
 ## Domain directory structure
 
 ```
 domains/<name>/
 ├── domain.toml              # domain definition (required)
-├── <name>_library.sysml     # SysML metadata library (required)
-└── templates/               # codegen templates (required for generation)
-    ├── rust/
-    │   ├── module.rs.j2
-    │   ├── state_machine.rs.j2
-    │   ├── trait_interface.rs.j2
-    │   └── test.rs.j2
-    ├── c/
-    │   ├── module.c.j2
-    │   ├── module.h.j2
-    │   └── test.c.j2
-    └── cpp/                 # optional, added when needed
-        ├── module.cpp.j2
-        └── module.hpp.j2
+└── <name>_library.sysml     # SysML metadata library (required)
 ```
 
 ## domain.toml specification
@@ -108,14 +95,18 @@ package Firmware {
 
 The metadata library defines what annotations are *available*. The `domain.toml` defines which are *required* and how to *validate* them.
 
-## Template conventions
+## Source configuration
 
-- **Extension:** `.j2` (Jinja2 standard)
-- **Naming:** Double extension — `module.rs.j2` generates `.rs` files
-- **Organization:** By target language (`rust/`, `c/`, `cpp/`)
-- **Engine:** MiniJinja with `trim_blocks` + `lstrip_blocks`
-- **Context:** Templates receive an `ExtractedModule` (or `ExtractedStateMachine`, etc.) as their data context
-- **Filters available:** `snake_case`, `pascal_case`, `screaming_snake`, `map_type`
+The `[source]` table in `domain.toml` tells the audit engine where to find source files:
+
+```toml
+[source]
+root = "src"        # source root directory
+language = "rust"   # target language (rust, c)
+layout = "flat"     # file layout (flat, nested)
+```
+
+The audit engine resolves module names to source file paths using this config. For example, with `root = "src"`, `language = "rust"`, `layout = "flat"`, a module named `BtA2dpSink` maps to `src/bt_a2dp_sink.rs`.
 
 ## Workspace config (`sysml.toml`)
 
@@ -153,10 +144,9 @@ The template domain has:
 ## Adding a new domain
 
 1. Copy `domains/template/` to `domains/<name>/`
-2. Edit `domain.toml` — define your layers, required metadata, type maps
+2. Edit `domain.toml` — define your layers, required metadata, type maps, `[source]` config
 3. Write `<name>_library.sysml` with your metadata definitions
-4. Write templates in `templates/<language>/`
-5. In the user's project, set `domain = "<name>"` in `sysml.toml`
+4. In the user's project, set `domain = "<name>"` in `sysml.toml`
 
 No Rust code. No recompilation.
 
@@ -168,7 +158,6 @@ If a domain needs validation logic that can't be expressed in config (e.g., cros
 domains/<name>/
 ├── domain.toml
 ├── <name>_library.sysml
-├── templates/
 └── src/                      # optional Rust crate
     ├── Cargo.toml
     └── lib.rs                # impl DomainPlugin for <Name>Domain
