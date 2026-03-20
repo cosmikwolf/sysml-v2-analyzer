@@ -8,7 +8,7 @@
 | 2 | Engine scaffold + domain config | COMPLETE | [phase-2-engine-scaffold.md](phase-2-engine-scaffold.md) |
 | 3 | Validation engine | COMPLETE | [phase-3-validation.md](phase-3-validation.md) |
 | 4 | Extraction engine | COMPLETE | [phase-4-extraction.md](phase-4-extraction.md) |
-| 5 | Code generation engine | Not started | [phase-5-codegen.md](phase-5-codegen.md) |
+| 5 | Code generation engine | COMPLETE | [phase-5-codegen.md](phase-5-codegen.md) |
 | 6 | CLI | Not started | [phase-6-cli.md](phase-6-cli.md) |
 
 ## Phase 1: Adapter crate — COMPLETE
@@ -61,17 +61,18 @@
 - [x] Metadata flattening (MetadataValue → serde_json::Value)
 - [x] Tests: 17 unit tests (flatten, extraction, gates, round-trip, determinism, write) + existing validation/integration tests
 
-## Phase 5: Code generation engine
+## Phase 5: Code generation engine — COMPLETE
 
-- [ ] MiniJinja environment setup (trim_blocks, lstrip_blocks, no auto-escape)
-- [ ] Template loading from `domains/<name>/templates/<language>/`
-- [ ] Standard filters: `snake_case`, `pascal_case`, `screaming_snake`, `map_type`
-- [ ] Module template rendering
-- [ ] State machine template rendering
-- [ ] Spec-hash fingerprinting (skip unchanged files)
-- [ ] Generation report
-- [ ] Create firmware Rust templates (`module.rs.j2`, `state_machine.rs.j2`, `test.rs.j2`)
-- [ ] Tests: template rendering, filter correctness, incremental skip
+- [x] MiniJinja environment setup (trim_blocks, lstrip_blocks, keep_trailing_newline, no auto-escape)
+- [x] Template loading from `domains/<name>/templates/<language>/`
+- [x] Standard filters: `snake_case`, `pascal_case`, `screaming_snake`, `map_type` (domain-aware type mapping)
+- [x] Module template rendering (`module.<ext>.j2` → per-module source files)
+- [x] State machine template rendering (`state_machine.<ext>.j2` → per-FSM source files)
+- [x] Test template rendering (`test.<ext>.j2` → per-module test stubs)
+- [x] Spec-hash fingerprinting (SHA256 of serialized input, skip unchanged files)
+- [x] Generation report (generated/skipped file lists)
+- [x] Firmware Rust templates: `module.rs.j2`, `state_machine.rs.j2`, `test.rs.j2`
+- [x] Tests: 15 codegen tests (filters, hash, generation, skip, report) + existing validation/extraction tests
 
 ## Phase 6: CLI
 

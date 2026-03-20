@@ -27,3 +27,5 @@ serde_yml = "0.0.12"
 toml = "0.8"
 clap = { version = "4", features = ["derive"] }
 petgraph = "0.7"
+minijinja = { version = "2", features = ["loader"] }
+sha2 = "0.10"

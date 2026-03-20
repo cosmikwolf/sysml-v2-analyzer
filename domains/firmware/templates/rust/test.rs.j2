@@ -1,0 +1,14 @@
+// Tests for: {{ module.name }}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+{% for action in module.actions %}
+    #[test]
+    fn test_{{ action.name | snake_case }}() {
+        todo!("test {{ action.name }}")
+    }
+
+{% endfor %}
+}

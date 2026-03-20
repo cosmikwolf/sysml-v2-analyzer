@@ -1,0 +1,29 @@
+// Module: {{ module.name }}
+// Layer: {{ module.layer | default(value="unknown") }}
+// Source: {{ module.source_file }}
+
+{% if module.metadata.ErrorHandling %}
+use thiserror::Error;
+{% endif %}
+
+/// {{ module.name }} — {{ module.layer | default(value="unknown") }} layer module.
+pub struct {{ module.name }} {
+    // TODO: Add fields from metadata
+}
+
+impl {{ module.name }} {
+{% for action in module.actions %}
+    pub fn {{ action.name | snake_case }}(&self) {
+        todo!("implement {{ action.name }}")
+    }
+
+{% endfor %}
+}
+
+{% if module.metadata.ErrorHandling %}
+#[derive(Debug, Error)]
+pub enum {{ module.name }}Error {
+    #[error("operation failed")]
+    Failed,
+}
+{% endif %}

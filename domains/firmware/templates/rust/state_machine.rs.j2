@@ -1,0 +1,30 @@
+// State machine: {{ fsm.name }}
+// Owner: {{ module.name }}
+
+/// States for {{ fsm.name }}.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum {{ fsm.name }}State {
+{% for state in fsm.states %}
+    {{ state | pascal_case }},
+{% endfor %}
+}
+
+/// Events for {{ fsm.name }}.
+#[derive(Debug, Clone)]
+pub enum {{ fsm.name }}Event {
+{% for event in events %}
+    {{ event }},
+{% endfor %}
+}
+
+/// Transition function for {{ fsm.name }}.
+pub fn handle_event(state: {{ fsm.name }}State, event: &{{ fsm.name }}Event) -> {{ fsm.name }}State {
+    match (state, event) {
+{% for t in fsm.transitions %}
+{% if t.event %}
+        ({{ fsm.name }}State::{{ t.from_state | pascal_case }}, {{ fsm.name }}Event::{{ t.event }}) => {{ fsm.name }}State::{{ t.to_state | pascal_case }},
+{% endif %}
+{% endfor %}
+        (current, _) => current,
+    }
+}
