@@ -2,10 +2,7 @@
 resolver = "2"
 members = [
     "crates/adapter",
-    "crates/validate",
-    "crates/extract",
-    "crates/gencontract",
-    "crates/codegen",
+    "crates/engine",
     "crates/cli",
 ]
 
@@ -17,10 +14,7 @@ publish = false
 [workspace.dependencies]
 # Internal crates
 sysml-v2-adapter = { path = "crates/adapter" }
-sysml-v2-validate = { path = "crates/validate" }
-sysml-v2-extract = { path = "crates/extract" }
-sysml-v2-gencontract = { path = "crates/gencontract" }
-sysml-v2-codegen = { path = "crates/codegen" }
+sysml-v2-engine = { path = "crates/engine" }
 
 # External — parser foundation
 syster-base = "=0.4.0-alpha"

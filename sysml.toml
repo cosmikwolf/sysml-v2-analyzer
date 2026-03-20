@@ -1,0 +1,3 @@
+[workspace]
+domain = "firmware"
+include = ["tests/fixtures/**/*.sysml"]

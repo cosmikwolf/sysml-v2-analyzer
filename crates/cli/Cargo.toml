@@ -12,10 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 sysml-v2-adapter.workspace = true
-sysml-v2-validate.workspace = true
-sysml-v2-extract.workspace = true
-sysml-v2-gencontract.workspace = true
-sysml-v2-codegen.workspace = true
+sysml-v2-engine.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

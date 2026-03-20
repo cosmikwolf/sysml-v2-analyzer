@@ -1,0 +1,40 @@
+[domain]
+name = "firmware"
+description = "Embedded firmware domain — layered architecture with memory, concurrency, and error-handling metadata"
+metadata_library = "firmware_library.sysml"
+
+[layers]
+order = ["application", "middleware", "driver", "hal", "pac"]
+
+[layers.allowed_deps]
+application = ["middleware"]
+middleware = ["driver", "hal"]
+driver = ["hal"]
+hal = ["pac"]
+pac = []
+
+[required_metadata]
+parts = ["MemoryModel", "ConcurrencyModel", "ErrorHandling"]
+
+[validation.rules]
+LAYER001 = "error"
+LAYER002 = "error"
+META010 = "error"
+META011 = "warning"
+FSM020 = "error"
+FSM021 = "error"
+FSM022 = "warning"
+PORT030 = "error"
+TYPE040 = "warning"
+
+[type_map.rust]
+Integer = "i32"
+Boolean = "bool"
+String = "String"
+Real = "f64"
+
+[type_map.c]
+Integer = "int32_t"
+Boolean = "bool"
+String = "const char*"
+Real = "double"

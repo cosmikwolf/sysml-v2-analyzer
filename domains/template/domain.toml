@@ -1,0 +1,24 @@
+[domain]
+name = "template"
+description = "Minimal example domain for testing and as a starter"
+metadata_library = "template_library.sysml"
+
+[layers]
+order = ["upper", "lower"]
+
+[layers.allowed_deps]
+upper = ["lower"]
+lower = []
+
+[required_metadata]
+parts = ["BasicInfo"]
+
+[validation.rules]
+LAYER001 = "error"
+LAYER002 = "warning"
+META010 = "warning"
+FSM020 = "error"
+
+[type_map.rust]
+Integer = "i32"
+Boolean = "bool"
