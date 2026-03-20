@@ -2,7 +2,7 @@
 //!
 //! Renders extracted module data through domain-provided templates
 //! to produce source code files. Supports incremental generation
-//! via spec-hash fingerprinting.
+//! via spec-hash fingerprinting and protected user code regions.
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -15,6 +15,7 @@ use crate::extraction::types::{ExtractionResult, ExtractedModule};
 
 pub mod filters;
 mod hash;
+pub mod regions;
 
 // ── Error type ──────────────────────────────────────────────────────
 
@@ -49,6 +50,8 @@ pub struct GeneratedFile {
     pub template: String,
     pub output_path: PathBuf,
     pub module_name: String,
+    /// Number of user code regions preserved from the previous version.
+    pub user_regions_preserved: usize,
 }
 
 /// A file that was skipped (spec-hash matched or template missing).
@@ -122,31 +125,14 @@ pub fn generate(
 
             let spec_hash = hash::compute_spec_hash(module);
 
-            if hash::check_spec_hash(&output_path, &spec_hash) {
-                report.skipped.push(SkippedFile {
-                    output_path,
-                    module_name: module.name.clone(),
-                    reason: "spec-hash unchanged".to_string(),
-                });
-            } else {
-                let rendered = render_module_template(
-                    template_src,
-                    &module_template_name,
-                    module,
-                    config,
-                    language,
-                    &type_map,
-                )?;
-
-                let content = format!("{}{}", hash::spec_hash_header(&spec_hash), rendered);
-                write_file(&output_path, &content)?;
-
-                report.generated.push(GeneratedFile {
-                    template: module_template_name.clone(),
-                    output_path,
-                    module_name: module.name.clone(),
-                });
-            }
+            generate_file_with_regions(
+                &output_path,
+                &spec_hash,
+                &module_template_name,
+                || render_module_template(template_src, &module_template_name, module, config, language, &type_map),
+                &module.name,
+                &mut report,
+            )?;
         }
 
         // ── State machine templates ──
@@ -162,33 +148,14 @@ pub fn generate(
                 let fsm_hash_input = (&module.name, fsm);
                 let spec_hash = hash::compute_spec_hash(&fsm_hash_input);
 
-                if hash::check_spec_hash(&output_path, &spec_hash) {
-                    report.skipped.push(SkippedFile {
-                        output_path,
-                        module_name: module.name.clone(),
-                        reason: "spec-hash unchanged".to_string(),
-                    });
-                } else {
-                    let rendered = render_fsm_template(
-                        template_src,
-                        &fsm_template_name,
-                        module,
-                        fsm,
-                        config,
-                        language,
-                        &type_map,
-                    )?;
-
-                    let content =
-                        format!("{}{}", hash::spec_hash_header(&spec_hash), rendered);
-                    write_file(&output_path, &content)?;
-
-                    report.generated.push(GeneratedFile {
-                        template: fsm_template_name.clone(),
-                        output_path,
-                        module_name: module.name.clone(),
-                    });
-                }
+                generate_file_with_regions(
+                    &output_path,
+                    &spec_hash,
+                    &fsm_template_name,
+                    || render_fsm_template(template_src, &fsm_template_name, module, fsm, config, language, &type_map),
+                    &module.name,
+                    &mut report,
+                )?;
             }
         }
 
@@ -202,31 +169,14 @@ pub fn generate(
 
             let spec_hash = hash::compute_spec_hash(module);
 
-            if hash::check_spec_hash(&output_path, &spec_hash) {
-                report.skipped.push(SkippedFile {
-                    output_path,
-                    module_name: module.name.clone(),
-                    reason: "spec-hash unchanged".to_string(),
-                });
-            } else {
-                let rendered = render_module_template(
-                    template_src,
-                    &test_template_name,
-                    module,
-                    config,
-                    language,
-                    &type_map,
-                )?;
-
-                let content = format!("{}{}", hash::spec_hash_header(&spec_hash), rendered);
-                write_file(&output_path, &content)?;
-
-                report.generated.push(GeneratedFile {
-                    template: test_template_name.clone(),
-                    output_path,
-                    module_name: module.name.clone(),
-                });
-            }
+            generate_file_with_regions(
+                &output_path,
+                &spec_hash,
+                &test_template_name,
+                || render_module_template(template_src, &test_template_name, module, config, language, &type_map),
+                &module.name,
+                &mut report,
+            )?;
         }
     }
 
@@ -332,6 +282,58 @@ fn render_fsm_template(
         template: template_name.to_string(),
         source: e,
     })
+}
+
+/// Generate a file with user code region preservation.
+///
+/// 1. If file exists and spec-hash matches → skip
+/// 2. If file exists and spec-hash differs → extract user regions, render, merge, write
+/// 3. If file doesn't exist → render and write with defaults
+fn generate_file_with_regions(
+    output_path: &Path,
+    spec_hash: &str,
+    template_name: &str,
+    render_fn: impl FnOnce() -> Result<String, CodegenError>,
+    module_name: &str,
+    report: &mut GenerationReport,
+) -> Result<(), CodegenError> {
+    if hash::check_spec_hash(output_path, spec_hash) {
+        report.skipped.push(SkippedFile {
+            output_path: output_path.to_path_buf(),
+            module_name: module_name.to_string(),
+            reason: "spec-hash unchanged".to_string(),
+        });
+        return Ok(());
+    }
+
+    // Extract existing user code regions before overwriting
+    let existing_regions = if output_path.exists() {
+        let content = std::fs::read_to_string(output_path)?;
+        regions::extract_user_regions(&content)
+    } else {
+        HashMap::new()
+    };
+
+    let rendered = render_fn()?;
+
+    // Merge preserved user code into rendered output
+    let user_regions_preserved = existing_regions.len();
+    let merged = if existing_regions.is_empty() {
+        rendered
+    } else {
+        regions::merge_user_regions(&rendered, &existing_regions)
+    };
+
+    let content = format!("{}{}", hash::spec_hash_header(spec_hash), merged);
+    write_file(output_path, &content)?;
+
+    report.generated.push(GeneratedFile {
+        template: template_name.to_string(),
+        output_path: output_path.to_path_buf(),
+        module_name: module_name.to_string(),
+        user_regions_preserved,
+    });
+    Ok(())
 }
 
 fn write_file(path: &Path, content: &str) -> Result<(), CodegenError> {
@@ -542,6 +544,94 @@ mod tests {
             !report.generated.is_empty(),
             "should generate module files from template domain"
         );
+
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    #[test]
+    fn test_user_code_preserved_on_regeneration() {
+        let extraction = extract_firmware();
+        let config = load_firmware_config();
+        let out = tmpdir("gen-preserve");
+
+        // First generation — produces files with todo!() defaults
+        let report1 = generate(&extraction, &config, "rust", &out).unwrap();
+        assert!(!report1.generated.is_empty());
+
+        // Simulate user editing: replace a todo!() with real code
+        let bt_file = out.join("bt_a2dp_sink.rs");
+        assert!(bt_file.exists());
+        let original = std::fs::read_to_string(&bt_file).unwrap();
+        assert!(original.contains("todo!"));
+
+        // Replace the first todo!() region with real code
+        let modified = original.replace(
+            "todo!(\"implement Init\")",
+            "self.hardware.init(config);\n        Ok(Self { state: State::Ready })",
+        );
+        assert_ne!(original, modified, "should have modified the file");
+        std::fs::write(&bt_file, &modified).unwrap();
+
+        // Invalidate spec-hash by changing it, forcing regeneration
+        let content = std::fs::read_to_string(&bt_file).unwrap();
+        let invalidated = content.replace("// spec-hash: ", "// spec-hash: 0000");
+        std::fs::write(&bt_file, &invalidated).unwrap();
+
+        // Second generation — spec unchanged, but hash invalidated → regenerates
+        let report2 = generate(&extraction, &config, "rust", &out).unwrap();
+
+        // The bt_a2dp_sink.rs should have been regenerated
+        let bt_generated = report2
+            .generated
+            .iter()
+            .find(|g| g.output_path == bt_file);
+        assert!(
+            bt_generated.is_some(),
+            "bt_a2dp_sink.rs should be regenerated"
+        );
+        assert!(
+            bt_generated.unwrap().user_regions_preserved > 0,
+            "should preserve user regions"
+        );
+
+        // Verify user code survived
+        let final_content = std::fs::read_to_string(&bt_file).unwrap();
+        assert!(
+            final_content.contains("self.hardware.init(config)"),
+            "user code should be preserved after regeneration. Content:\n{}",
+            final_content,
+        );
+        assert!(
+            final_content.contains("BEGIN USER CODE"),
+            "markers should still be present"
+        );
+
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    #[test]
+    fn test_first_generation_has_defaults() {
+        let extraction = extract_firmware();
+        let config = load_firmware_config();
+        let out = tmpdir("gen-defaults");
+
+        let report = generate(&extraction, &config, "rust", &out).unwrap();
+
+        // First run: no user regions to preserve
+        for gf in &report.generated {
+            assert_eq!(
+                gf.user_regions_preserved, 0,
+                "first generation should have 0 preserved regions for {}",
+                gf.output_path.display()
+            );
+        }
+
+        // Files should contain BEGIN/END markers with todo defaults
+        let bt_file = out.join("bt_a2dp_sink.rs");
+        let content = std::fs::read_to_string(&bt_file).unwrap();
+        assert!(content.contains("// BEGIN USER CODE"));
+        assert!(content.contains("// END USER CODE"));
+        assert!(content.contains("todo!"));
 
         let _ = std::fs::remove_dir_all(&out);
     }

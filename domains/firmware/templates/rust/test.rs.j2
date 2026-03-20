@@ -7,7 +7,9 @@ mod tests {
 {% for action in module.actions %}
     #[test]
     fn test_{{ action.name | snake_case }}() {
+        // BEGIN USER CODE test_{{ action.name | snake_case }}
         todo!("test {{ action.name }}")
+        // END USER CODE test_{{ action.name | snake_case }}
     }
 
 {% endfor %}

@@ -182,3 +182,26 @@ Domains configure severity per rule ID in `domain.toml`. Projects override sever
 - **Configurable ID prefixes** — unnecessary complexity; the rule semantics don't change across domains
 
 **Reconsider if:** domains need custom validation rules with their own IDs. At that point, add a `[domain.custom_rules]` section in `domain.toml` with domain-prefixed IDs.
+
+---
+
+## D8: Protected user code regions in generated files
+
+**Date:** 2026-03-20
+**Status:** Accepted
+
+**Context:** Code generation templates produce skeleton files with `todo!()` stubs. Users fill in method bodies, struct fields, and error variants. But regeneration (when the spec changes) overwrites the entire file, losing hand-written code.
+
+**Decision:** Generated files use `// BEGIN USER CODE <id>` / `// END USER CODE <id>` markers around user-editable sections. On regeneration, content inside markers is preserved from the existing file. Content outside markers is regenerated from templates.
+
+**Why:**
+- Full code generation from specs is impractical — method bodies, hardware init sequences, and error handling logic require hand-written code that can't be expressed in SysML
+- The alternative (one-shot scaffold, then hand-own the file) means spec changes can't propagate to code structure (new methods, removed fields, renamed types)
+- Protected regions give the best of both worlds: structural changes from spec, implementation from developer
+
+**Rejected alternatives:**
+- **Full generation** — requires specs to express every implementation detail, which is writing code in YAML
+- **One-shot scaffold** — generates once then the file is yours; spec changes don't propagate
+- **Separate generated/handwritten files** — e.g., generate a trait, implement by hand; adds boilerplate and indirection
+
+**Reconsider if:** Templates become rich enough to generate complete implementations (unlikely for embedded firmware with hardware-specific concerns).
