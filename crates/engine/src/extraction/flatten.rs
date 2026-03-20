@@ -42,51 +42,8 @@ mod tests {
     use super::*;
     use sysml_v2_adapter::{MetadataField, MetadataValue};
 
-    #[test]
-    fn test_flatten_enum_ref() {
-        let val = MetadataValue::EnumRef {
-            enum_type: "AllocationKind".to_string(),
-            variant: "static_alloc".to_string(),
-        };
-        assert_eq!(
-            flatten_metadata_value(&val),
-            json!("AllocationKind::static_alloc")
-        );
-    }
-
-    #[test]
-    fn test_flatten_boolean() {
-        assert_eq!(flatten_metadata_value(&MetadataValue::Boolean(true)), json!(true));
-        assert_eq!(flatten_metadata_value(&MetadataValue::Boolean(false)), json!(false));
-    }
-
-    #[test]
-    fn test_flatten_integer() {
-        assert_eq!(flatten_metadata_value(&MetadataValue::Integer(42)), json!(42));
-    }
-
-    #[test]
-    fn test_flatten_string() {
-        assert_eq!(
-            flatten_metadata_value(&MetadataValue::String("hello".to_string())),
-            json!("hello")
-        );
-    }
-
-    #[test]
-    fn test_flatten_tuple() {
-        let val = MetadataValue::Tuple(vec![
-            MetadataValue::String("a".to_string()),
-            MetadataValue::Integer(1),
-        ]);
-        assert_eq!(flatten_metadata_value(&val), json!(["a", 1]));
-    }
-
-    #[test]
-    fn test_flatten_empty_tuple() {
-        let val = MetadataValue::Tuple(vec![]);
-        assert_eq!(flatten_metadata_value(&val), json!([]));
-    }
+    // Note: Individual flatten_metadata_value tests removed —
+    // now covered by property tests in property_tests module below.
 
     #[test]
     fn test_flatten_annotations() {

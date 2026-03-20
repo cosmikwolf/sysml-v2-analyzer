@@ -282,11 +282,15 @@ mod tests {
         let (file, part) = find_part_def(&ws, "AudioPipeline");
         let connections = resolve_connections(file, part);
 
-        // Should find connect bt.audioOut to audioIn
+        // Should find connect bt.audioOut to audioIn — verify both endpoints
         let bt_conn = connections.iter().find(|c| {
-            c.source.contains("bt.audioOut") || c.target.contains("audioIn")
+            c.source == "bt.audioOut" && c.target == "audioIn"
         });
-        assert!(bt_conn.is_some(), "should find bt.audioOut connection");
+        assert!(
+            bt_conn.is_some(),
+            "should find connect bt.audioOut to audioIn, got: {:?}",
+            connections.iter().map(|c| format!("{} -> {}", c.source, c.target)).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -341,5 +345,58 @@ mod tests {
         assert_eq!(conn.target, "i2s.i2sIn.samples");
         assert_eq!(conn.flow_type.as_deref(), Some("Integer"));
         assert_eq!(conn.kind, ConnectionKind::Flow);
+    }
+}
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn parse_connect_never_panics(s in ".*") {
+            let _ = parse_connect_statement(&s);
+        }
+
+        #[test]
+        fn parse_flow_never_panics(s in ".*") {
+            let _ = parse_flow_statement(&s);
+        }
+
+        #[test]
+        fn valid_connect_roundtrips(
+            src in "[a-z][a-zA-Z0-9.]{0,15}",
+            tgt in "[a-z][a-zA-Z0-9.]{0,15}"
+        ) {
+            let stmt = format!("connect {} to {};", src, tgt);
+            let conn = parse_connect_statement(&stmt);
+            prop_assert!(conn.is_some(), "valid connect should parse: '{}'", stmt);
+            let conn = conn.unwrap();
+            prop_assert_eq!(conn.source.trim(), src.trim());
+            prop_assert_eq!(conn.target.trim(), tgt.trim());
+            prop_assert_eq!(conn.kind, ConnectionKind::Connect);
+        }
+
+        #[test]
+        fn valid_flow_roundtrips(
+            flow_type in "[A-Z][a-zA-Z]{0,10}",
+            src in "[a-z][a-zA-Z0-9.]{0,15}",
+            tgt in "[a-z][a-zA-Z0-9.]{0,15}"
+        ) {
+            let stmt = format!("flow of {} from {} to {};", flow_type, src, tgt);
+            let conn = parse_flow_statement(&stmt);
+            prop_assert!(conn.is_some(), "valid flow should parse: '{}'", stmt);
+            let conn = conn.unwrap();
+            prop_assert_eq!(conn.flow_type.as_deref(), Some(flow_type.as_str()));
+            prop_assert_eq!(conn.kind, ConnectionKind::Flow);
+        }
+
+        #[test]
+        fn random_string_not_connect(s in "[^c].*") {
+            // Strings not starting with 'c' should never parse as connect
+            let result = parse_connect_statement(&s);
+            prop_assert!(result.is_none() || s.contains("connect"));
+        }
     }
 }

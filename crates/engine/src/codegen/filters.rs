@@ -146,11 +146,7 @@ mod tests {
         assert_eq!(map_type("Boolean", &type_map), "bool");
     }
 
-    #[test]
-    fn test_map_type_unknown() {
-        let type_map = HashMap::new();
-        assert_eq!(map_type("CustomType", &type_map), "CustomType");
-    }
+    // Note: test_map_type_unknown removed — covered by proptest map_type_passthrough_when_not_in_map.
 }
 
 #[cfg(test)]

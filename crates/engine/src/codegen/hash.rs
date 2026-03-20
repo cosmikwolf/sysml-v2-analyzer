@@ -77,12 +77,7 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn test_spec_hash_header() {
-        let header = spec_hash_header("abc123");
-        assert!(header.contains("spec-hash: abc123"));
-        assert!(header.contains("DO NOT EDIT"));
-    }
+    // Note: test_spec_hash_header removed — covered by proptest header_round_trips_through_check.
 }
 
 #[cfg(test)]

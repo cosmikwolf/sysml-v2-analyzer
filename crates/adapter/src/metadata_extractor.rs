@@ -418,40 +418,8 @@ mod tests {
         assert!(isr.is_some(), "I2sOutput should have @ISRSafe");
     }
 
-    #[test]
-    fn test_enum_ref_value() {
-        let value = parse_value("AllocationKind::static_alloc");
-        assert_eq!(
-            value,
-            MetadataValue::EnumRef {
-                enum_type: "AllocationKind".to_string(),
-                variant: "static_alloc".to_string()
-            }
-        );
-    }
-
-    #[test]
-    fn test_boolean_value() {
-        assert_eq!(parse_value("true"), MetadataValue::Boolean(true));
-        assert_eq!(parse_value("false"), MetadataValue::Boolean(false));
-    }
-
-    #[test]
-    fn test_integer_value() {
-        assert_eq!(parse_value("1"), MetadataValue::Integer(1));
-        assert_eq!(parse_value("42"), MetadataValue::Integer(42));
-    }
-
-    #[test]
-    fn test_tuple_value() {
-        let value = parse_value(r#"("Bluetooth controller",)"#);
-        match value {
-            MetadataValue::Tuple(values) => {
-                assert!(!values.is_empty(), "tuple should have elements");
-            }
-            other => panic!("expected Tuple, got {:?}", other),
-        }
-    }
+    // Note: Individual parse_value tests (enum ref, boolean, integer, tuple) removed —
+    // now covered by property tests in property_tests module below.
 }
 
 #[cfg(test)]
