@@ -4,12 +4,12 @@
 
 | Phase | Component | Status | Detail doc |
 |---|---|---|---|
-| 1 | Adapter crate | COMPLETE | [phase-1-adapter.md](phase-1-adapter.md) |
-| 2 | Engine scaffold + domain config | COMPLETE | [phase-2-engine-scaffold.md](phase-2-engine-scaffold.md) |
-| 3 | Validation engine | COMPLETE | [phase-3-validation.md](phase-3-validation.md) |
-| 4 | Extraction engine | COMPLETE | [phase-4-extraction.md](phase-4-extraction.md) |
-| 5 | Code generation engine | COMPLETE | [phase-5-codegen.md](phase-5-codegen.md) |
-| 6 | CLI | COMPLETE | [phase-6-cli.md](phase-6-cli.md) |
+| 1 | Adapter crate | COMPLETE | [phase-1-adapter.md](archive/phase-1-adapter.md) |
+| 2 | Engine scaffold + domain config | COMPLETE | [phase-2-engine-scaffold.md](archive/phase-2-engine-scaffold.md) |
+| 3 | Validation engine | COMPLETE | [phase-3-validation.md](archive/phase-3-validation.md) |
+| 4 | Extraction engine | COMPLETE | [phase-4-extraction.md](archive/phase-4-extraction.md) |
+| 5 | Code generation engine | COMPLETE | [phase-5-codegen.md](archive/phase-5-codegen.md) |
+| 6 | CLI | COMPLETE | [phase-6-cli.md](archive/phase-6-cli.md) |
 
 ## Phase 1: Adapter crate — COMPLETE
 
