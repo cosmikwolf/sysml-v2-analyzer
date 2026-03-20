@@ -3,17 +3,42 @@
 //! Produces a list of AuditItems describing matches, mismatches,
 //! missing items, and uncovered code.
 
+use std::collections::HashMap;
+
 use crate::extraction::{ExtractedModule, ParameterDirection};
 use crate::util::snake_case;
 
 use super::code_parser::{CodeConstruct, ConstructKind};
 use super::AuditItem;
 
+/// Translate a SysML spec type to the target language type using the type map.
+///
+/// If the type map is `None` or the type is not found, returns the original type.
+fn translate_type(spec_type: &str, type_map: Option<&HashMap<String, String>>) -> String {
+    match type_map {
+        Some(map) => map.get(spec_type).cloned().unwrap_or_else(|| spec_type.to_string()),
+        None => spec_type.to_string(),
+    }
+}
+
+/// Strip leading reference qualifiers (`&`, `&mut `) from a type string.
+fn strip_reference(type_str: &str) -> &str {
+    let s = type_str.trim();
+    if let Some(rest) = s.strip_prefix("&mut ") {
+        rest.trim()
+    } else if let Some(rest) = s.strip_prefix('&') {
+        rest.trim()
+    } else {
+        s
+    }
+}
+
 /// Compare a spec module against parsed code constructs.
 pub fn compare_module(
     module: &ExtractedModule,
     code: &[CodeConstruct],
     show_uncovered: bool,
+    type_map: Option<&HashMap<String, String>>,
 ) -> Vec<AuditItem> {
     let mut items = Vec::new();
     let mut matched_code_indices: Vec<bool> = vec![false; code.len()];
@@ -76,7 +101,7 @@ pub fn compare_module(
                 })
                 .collect();
 
-            // Simple parameter count comparison (exact matching is language-dependent)
+            // Parameter comparison: count first, then types if type_map available
             let spec_non_self: Vec<_> = action
                 .parameters
                 .iter()
@@ -88,17 +113,48 @@ pub fn compare_module(
                 .filter(|p| p.name != "self")
                 .collect();
 
-            if spec_non_self.len() == code_non_self.len() {
-                items.push(AuditItem::Match {
-                    kind: "action".to_string(),
-                    name: action.name.clone(),
-                });
-            } else {
+            if spec_non_self.len() != code_non_self.len() {
                 items.push(AuditItem::Mismatch {
                     kind: "action".to_string(),
                     name: action.name.clone(),
                     spec_detail: format!("({})", spec_params.join(", ")),
                     code_detail: format!("({})", code_params.join(", ")),
+                });
+            } else if type_map.is_some() {
+                // Type-aware pairwise comparison
+                let mut type_mismatches = Vec::new();
+                for (sp, cp) in spec_non_self.iter().zip(code_non_self.iter()) {
+                    let translated = translate_type(&sp.type_name, type_map);
+                    let code_stripped = strip_reference(&cp.type_name);
+                    if translated != code_stripped {
+                        type_mismatches.push(format!(
+                            "{}: spec {} → code {}",
+                            sp.name, translated, cp.type_name
+                        ));
+                    }
+                }
+
+                if type_mismatches.is_empty() {
+                    items.push(AuditItem::Match {
+                        kind: "action".to_string(),
+                        name: action.name.clone(),
+                    });
+                } else {
+                    items.push(AuditItem::Mismatch {
+                        kind: "action".to_string(),
+                        name: action.name.clone(),
+                        spec_detail: format!("({})", spec_params.join(", ")),
+                        code_detail: format!(
+                            "type mismatches: [{}]",
+                            type_mismatches.join("; ")
+                        ),
+                    });
+                }
+            } else {
+                // No type map — count-only match (backward compat)
+                items.push(AuditItem::Match {
+                    kind: "action".to_string(),
+                    name: action.name.clone(),
                 });
             }
         } else {
@@ -305,7 +361,7 @@ mod tests {
     fn test_compare_match() {
         let module = test_module();
         let code = matching_code();
-        let items = compare_module(&module, &code, false);
+        let items = compare_module(&module, &code, false, None);
 
         let matches: Vec<_> = items
             .iter()
@@ -322,7 +378,7 @@ mod tests {
     fn test_compare_missing() {
         let module = test_module();
         let code = vec![]; // empty code
-        let items = compare_module(&module, &code, false);
+        let items = compare_module(&module, &code, false, None);
 
         let missing: Vec<_> = items
             .iter()
@@ -354,7 +410,7 @@ mod tests {
                 line: 5,
             },
         ];
-        let items = compare_module(&module, &code, false);
+        let items = compare_module(&module, &code, false, None);
 
         let mismatches: Vec<_> = items
             .iter()
@@ -391,7 +447,7 @@ mod tests {
                 line: 20,
             },
         ];
-        let items = compare_module(&module, &code, true);
+        let items = compare_module(&module, &code, true, None);
 
         let uncovered: Vec<_> = items
             .iter()
@@ -428,7 +484,7 @@ mod tests {
             line: 1,
         }];
 
-        let items = compare_module(&module, &code, true);
+        let items = compare_module(&module, &code, true, None);
         let uncovered: Vec<_> = items
             .iter()
             .filter(|i| matches!(i, AuditItem::Uncovered { .. }))
@@ -439,11 +495,211 @@ mod tests {
     #[test]
     fn test_compare_empty_code_all_missing() {
         let module = test_module();
-        let items = compare_module(&module, &[], false);
+        let items = compare_module(&module, &[], false, None);
         let missing: Vec<_> = items
             .iter()
             .filter(|i| matches!(i, AuditItem::Missing { .. }))
             .collect();
         assert!(!missing.is_empty());
+    }
+
+    #[test]
+    fn test_type_aware_match() {
+        // Custom type not in type_map passes through unchanged
+        let mut module = test_module();
+        module.actions = vec![ExtractedAction {
+            name: "Init".to_string(),
+            parameters: vec![ActionParameter {
+                name: "config".to_string(),
+                type_name: "A2dpConfig".to_string(),
+                direction: ParameterDirection::In,
+            }],
+        }];
+        module.state_machines.clear();
+
+        let code = vec![
+            CodeConstruct {
+                kind: ConstructKind::Struct,
+                name: "BtA2dpSink".to_string(),
+                parameters: Vec::new(),
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 1,
+            },
+            CodeConstruct {
+                kind: ConstructKind::Function,
+                name: "init".to_string(),
+                parameters: vec![ParsedParameter {
+                    name: "config".to_string(),
+                    type_name: "A2dpConfig".to_string(),
+                }],
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 5,
+            },
+        ];
+
+        let type_map: HashMap<String, String> =
+            [("Integer".to_string(), "i32".to_string())].into();
+        let items = compare_module(&module, &code, false, Some(&type_map));
+        let matches: Vec<_> = items
+            .iter()
+            .filter(|i| matches!(i, AuditItem::Match { .. }))
+            .collect();
+        assert_eq!(matches.len(), 2, "struct + action should match: {:?}", items);
+    }
+
+    #[test]
+    fn test_type_aware_mismatch() {
+        // Integer maps to i32, but code has f64 → mismatch
+        let mut module = test_module();
+        module.actions = vec![ExtractedAction {
+            name: "SetValue".to_string(),
+            parameters: vec![ActionParameter {
+                name: "value".to_string(),
+                type_name: "Integer".to_string(),
+                direction: ParameterDirection::In,
+            }],
+        }];
+        module.state_machines.clear();
+
+        let code = vec![
+            CodeConstruct {
+                kind: ConstructKind::Struct,
+                name: "BtA2dpSink".to_string(),
+                parameters: Vec::new(),
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 1,
+            },
+            CodeConstruct {
+                kind: ConstructKind::Function,
+                name: "set_value".to_string(),
+                parameters: vec![ParsedParameter {
+                    name: "value".to_string(),
+                    type_name: "f64".to_string(),
+                }],
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 5,
+            },
+        ];
+
+        let type_map: HashMap<String, String> =
+            [("Integer".to_string(), "i32".to_string())].into();
+        let items = compare_module(&module, &code, false, Some(&type_map));
+        let mismatches: Vec<_> = items
+            .iter()
+            .filter(|i| matches!(i, AuditItem::Mismatch { .. }))
+            .collect();
+        assert_eq!(mismatches.len(), 1, "should have type mismatch: {:?}", items);
+    }
+
+    #[test]
+    fn test_type_aware_map_match() {
+        // Integer maps to i32, code has i32 → match
+        let mut module = test_module();
+        module.actions = vec![ExtractedAction {
+            name: "SetValue".to_string(),
+            parameters: vec![ActionParameter {
+                name: "value".to_string(),
+                type_name: "Integer".to_string(),
+                direction: ParameterDirection::In,
+            }],
+        }];
+        module.state_machines.clear();
+
+        let code = vec![
+            CodeConstruct {
+                kind: ConstructKind::Struct,
+                name: "BtA2dpSink".to_string(),
+                parameters: Vec::new(),
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 1,
+            },
+            CodeConstruct {
+                kind: ConstructKind::Function,
+                name: "set_value".to_string(),
+                parameters: vec![ParsedParameter {
+                    name: "value".to_string(),
+                    type_name: "i32".to_string(),
+                }],
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 5,
+            },
+        ];
+
+        let type_map: HashMap<String, String> =
+            [("Integer".to_string(), "i32".to_string())].into();
+        let items = compare_module(&module, &code, false, Some(&type_map));
+        let matches: Vec<_> = items
+            .iter()
+            .filter(|i| matches!(i, AuditItem::Match { kind, .. } if kind == "action"))
+            .collect();
+        assert_eq!(matches.len(), 1, "translated type should match: {:?}", items);
+    }
+
+    #[test]
+    fn test_type_aware_reference_match() {
+        // Spec A2dpConfig, code &A2dpConfig → match (reference stripped)
+        let mut module = test_module();
+        module.actions = vec![ExtractedAction {
+            name: "Init".to_string(),
+            parameters: vec![ActionParameter {
+                name: "config".to_string(),
+                type_name: "A2dpConfig".to_string(),
+                direction: ParameterDirection::In,
+            }],
+        }];
+        module.state_machines.clear();
+
+        let code = vec![
+            CodeConstruct {
+                kind: ConstructKind::Struct,
+                name: "BtA2dpSink".to_string(),
+                parameters: Vec::new(),
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 1,
+            },
+            CodeConstruct {
+                kind: ConstructKind::Function,
+                name: "init".to_string(),
+                parameters: vec![ParsedParameter {
+                    name: "config".to_string(),
+                    type_name: "&A2dpConfig".to_string(),
+                }],
+                fields: Vec::new(),
+                variants: Vec::new(),
+                line: 5,
+            },
+        ];
+
+        let type_map: HashMap<String, String> = HashMap::new();
+        let items = compare_module(&module, &code, false, Some(&type_map));
+        let matches: Vec<_> = items
+            .iter()
+            .filter(|i| matches!(i, AuditItem::Match { kind, .. } if kind == "action"))
+            .collect();
+        assert_eq!(matches.len(), 1, "reference should be stripped for match: {:?}", items);
+    }
+
+    #[test]
+    fn test_type_aware_none_map() {
+        // None type_map → count-only comparison (backward compat)
+        let module = test_module();
+        let code = matching_code();
+        let items = compare_module(&module, &code, false, None);
+        let matches: Vec<_> = items
+            .iter()
+            .filter(|i| matches!(i, AuditItem::Match { .. }))
+            .collect();
+        assert!(
+            matches.len() >= 3,
+            "None type_map should still match by count: {:?}",
+            items
+        );
     }
 }

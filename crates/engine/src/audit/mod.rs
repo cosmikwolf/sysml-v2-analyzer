@@ -113,7 +113,8 @@ pub fn audit(
 
             let constructs =
                 code_parser::parse_source(&source, &config.source.language, languages_dir)?;
-            compare::compare_module(module, &constructs, show_uncovered)
+            let lang_type_map = config.type_map.get(&config.source.language);
+            compare::compare_module(module, &constructs, show_uncovered, lang_type_map)
         } else {
             // No source file found — all spec items are "missing from code"
             vec![AuditItem::Missing {
