@@ -1,0 +1,21 @@
+[package]
+name = "sysml-v2-analyzer"
+version = "0.1.0"
+description = "Unified CLI for the SysML v2 firmware toolchain"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "sysml-v2-analyzer"
+path = "src/main.rs"
+
+[dependencies]
+sysml-v2-adapter.workspace = true
+sysml-v2-validate.workspace = true
+sysml-v2-extract.workspace = true
+sysml-v2-gencontract.workspace = true
+sysml-v2-codegen.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

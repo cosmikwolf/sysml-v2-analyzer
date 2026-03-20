@@ -1,0 +1,13 @@
+[package]
+name = "sysml-v2-adapter"
+version = "0.1.0"
+description = "Thin adapter over syster-base for firmware-specific SysML v2 queries"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+syster-base.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]

@@ -1,0 +1,3 @@
+# Override parent project's ESP32 target — this crate runs on host
+[build]
+target = "aarch64-apple-darwin"
