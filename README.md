@@ -5,15 +5,15 @@ A Rust toolchain for analyzing SysML v2 specifications and generating code from 
 ## What it does
 
 ```
-.sysml files  →  parse  →  validate  →  extract  →  generate  →  source code
+.sysml files  →  parse  →  validate  →  extract  →  audit  →  report
 ```
 
-The analyzer reads SysML v2 specifications and transforms them through a pipeline. Domain knowledge (what to validate, what to extract, how to generate code) comes from a `domains/` directory — not compiled into the binary.
+The analyzer reads SysML v2 specifications and transforms them through a pipeline. Domain knowledge (what to validate, what to extract) comes from a `domains/` directory — not compiled into the binary.
 
 1. **Parse** — Load `.sysml` files via syster-base into a queryable workspace
 2. **Validate** — Check domain rules (layer dependencies, required metadata, FSM well-formedness)
 3. **Extract** — Flatten SysML models into YAML/JSON
-4. **Generate** — Render MiniJinja templates into source files (with protected user code regions preserved across regeneration)
+4. **Audit** — Compare spec against hand-written source code using tree-sitter, reporting matches, mismatches, missing items, and uncovered code
 
 ## Quick start
 
@@ -42,8 +42,14 @@ sysml-v2-analyzer validate
 # Extract models to YAML
 sysml-v2-analyzer extract -o output/
 
-# Full pipeline: validate → extract → generate Rust source
-sysml-v2-analyzer generate -o src/generated/ -l rust
+# Audit spec against source code
+sysml-v2-analyzer audit
+
+# Audit with uncovered code shown
+sysml-v2-analyzer audit --uncovered
+
+# Audit a specific module
+sysml-v2-analyzer audit BtA2dpSink
 
 # Show workspace summary
 sysml-v2-analyzer status
@@ -105,7 +111,7 @@ Adding a new domain = creating a directory under `domains/` with a `domain.toml`
 | Crate | Purpose |
 |---|---|
 | [`sysml-v2-adapter`](crates/adapter/) | Domain-agnostic SysML v2 query library (metadata, connections, FSMs) |
-| [`sysml-v2-engine`](crates/engine/) | Domain-agnostic pipeline framework (validation, extraction, codegen) |
+| [`sysml-v2-engine`](crates/engine/) | Domain-agnostic pipeline framework (validation, extraction, audit) |
 | [`sysml-v2-analyzer`](crates/cli/) | CLI binary — discovers config, loads domain, runs pipeline |
 
 ## Domains

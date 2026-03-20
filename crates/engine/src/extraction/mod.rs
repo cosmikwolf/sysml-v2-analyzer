@@ -256,6 +256,7 @@ fn extract_ports(
 ///
 /// Actions appear as `action def Name { ... }` in SysML. The HIR doesn't
 /// expose a dedicated `ActionDefinition` symbol kind, so we parse the body text.
+/// Parses `in`/`out` parameters from the action body block.
 fn extract_actions(
     _workspace: &SysmlWorkspace,
     file: &sysml_v2_adapter::ParsedFile,
@@ -266,23 +267,85 @@ fn extract_actions(
     };
 
     let mut actions = Vec::new();
-    for line in body.lines() {
-        let trimmed = line.trim();
+    let lines: Vec<&str> = body.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let trimmed = lines[i].trim();
         if let Some(rest) = trimmed.strip_prefix("action def ") {
             // Extract name: everything before '{' or ';' or whitespace
             let name = rest
                 .split(|c: char| c == '{' || c == ';' || c.is_whitespace())
                 .next()
                 .unwrap_or("")
-                .trim();
-            if !name.is_empty() {
-                actions.push(ExtractedAction {
-                    name: name.to_string(),
-                });
+                .trim()
+                .to_string();
+
+            if name.is_empty() {
+                i += 1;
+                continue;
             }
+
+            // Check if this action has a body block (contains '{')
+            let mut parameters = Vec::new();
+            if trimmed.contains('{') {
+                // Parse parameters from subsequent lines until '}'
+                let start = i + 1;
+                let mut j = start;
+                while j < lines.len() {
+                    let param_line = lines[j].trim();
+                    if param_line.contains('}') {
+                        break;
+                    }
+                    if let Some(param) = parse_action_parameter(param_line) {
+                        parameters.push(param);
+                    }
+                    j += 1;
+                }
+                i = j + 1;
+            } else {
+                i += 1;
+            }
+
+            actions.push(ExtractedAction { name, parameters });
+        } else {
+            i += 1;
         }
     }
     actions
+}
+
+/// Parse a single action parameter line like `in config : A2dpConfig;`
+fn parse_action_parameter(line: &str) -> Option<ActionParameter> {
+    // Strip inline comments
+    let without_comment = if let Some(pos) = line.find("//") {
+        &line[..pos]
+    } else {
+        line
+    };
+    let trimmed = without_comment.trim().trim_end_matches(';').trim();
+
+    let (direction, rest) = if let Some(rest) = trimmed.strip_prefix("in ") {
+        (ParameterDirection::In, rest.trim())
+    } else if let Some(rest) = trimmed.strip_prefix("out ") {
+        (ParameterDirection::Out, rest.trim())
+    } else {
+        return None;
+    };
+
+    // Split on ':' to get name and type
+    let mut parts = rest.splitn(2, ':');
+    let name = parts.next()?.trim().to_string();
+    let type_name = parts.next()?.trim().to_string();
+
+    if name.is_empty() || type_name.is_empty() {
+        return None;
+    }
+
+    Some(ActionParameter {
+        name,
+        type_name,
+        direction,
+    })
 }
 
 /// Build the dependency graph from PartUsage → PartDefinition relationships.
@@ -626,5 +689,64 @@ package Test {
         let _: ExtractedModule = serde_json::from_str(&json_str).unwrap();
 
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_extract_action_params() {
+        let ws = load_valid_workspace();
+        let config = load_firmware_config();
+        let validation = validate(&ws, &config);
+        let result = extract(&ws, &config, &validation).unwrap();
+
+        let status_led = result
+            .modules
+            .iter()
+            .find(|m| m.name == "StatusLed")
+            .expect("should extract StatusLed");
+
+        let new_action = status_led
+            .actions
+            .iter()
+            .find(|a| a.name == "New")
+            .expect("should have New action");
+
+        // New has: in dataPin : ScalarValues, in clockPin : ScalarValues, out led : StatusLed
+        assert!(
+            new_action.parameters.len() >= 3,
+            "New should have at least 3 params, got: {:?}",
+            new_action.parameters
+        );
+
+        let data_pin = new_action
+            .parameters
+            .iter()
+            .find(|p| p.name == "dataPin")
+            .expect("should have dataPin param");
+        assert_eq!(data_pin.direction, ParameterDirection::In);
+        assert_eq!(data_pin.type_name, "ScalarValues");
+
+        let led_out = new_action
+            .parameters
+            .iter()
+            .find(|p| p.name == "led")
+            .expect("should have led param");
+        assert_eq!(led_out.direction, ParameterDirection::Out);
+        assert_eq!(led_out.type_name, "StatusLed");
+    }
+
+    #[test]
+    fn test_parse_action_parameter_line() {
+        let param = super::parse_action_parameter("in config : A2dpConfig;").unwrap();
+        assert_eq!(param.name, "config");
+        assert_eq!(param.type_name, "A2dpConfig");
+        assert_eq!(param.direction, ParameterDirection::In);
+
+        let param = super::parse_action_parameter("out result : BtA2dpSink;").unwrap();
+        assert_eq!(param.name, "result");
+        assert_eq!(param.type_name, "BtA2dpSink");
+        assert_eq!(param.direction, ParameterDirection::Out);
+
+        assert!(super::parse_action_parameter("attribute x : Integer;").is_none());
+        assert!(super::parse_action_parameter("").is_none());
     }
 }

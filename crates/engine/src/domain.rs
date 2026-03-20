@@ -40,6 +40,14 @@ struct RawDomainConfig {
     required_metadata: Option<RawRequiredMetadata>,
     validation: Option<RawValidation>,
     type_map: Option<HashMap<String, HashMap<String, String>>>,
+    source: Option<RawSourceConfig>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct RawSourceConfig {
+    root: Option<String>,
+    language: Option<String>,
+    layout: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -100,6 +108,27 @@ pub struct RequiredMetadataConfig {
     pub parts: Vec<String>,
 }
 
+/// Source code layout configuration for a domain.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceConfig {
+    /// Root directory for source files (e.g., "src").
+    pub root: String,
+    /// Source language (e.g., "rust", "c").
+    pub language: String,
+    /// File layout convention (e.g., "flat", "nested").
+    pub layout: String,
+}
+
+impl Default for SourceConfig {
+    fn default() -> Self {
+        Self {
+            root: "src".to_string(),
+            language: "rust".to_string(),
+            layout: "flat".to_string(),
+        }
+    }
+}
+
 /// Fully resolved domain configuration, after merging domain defaults
 /// with optional project-level overrides from `sysml.toml`.
 #[derive(Debug, Clone)]
@@ -111,7 +140,7 @@ pub struct DomainConfig {
     pub required_metadata: RequiredMetadataConfig,
     pub type_map: HashMap<String, HashMap<String, String>>,
     pub validation_rules: HashMap<String, Severity>,
-    pub template_dir: PathBuf,
+    pub source: SourceConfig,
 }
 
 impl DomainConfig {
@@ -126,7 +155,15 @@ impl DomainConfig {
         let raw = read_toml::<RawDomainConfig>(&domain_toml_path)?;
 
         let metadata_library = domain_dir.join(&raw.domain.metadata_library);
-        let template_dir = domain_dir.join("templates");
+
+        let source = match raw.source {
+            Some(s) => SourceConfig {
+                root: s.root.unwrap_or_else(|| "src".to_string()),
+                language: s.language.unwrap_or_else(|| "rust".to_string()),
+                layout: s.layout.unwrap_or_else(|| "flat".to_string()),
+            },
+            None => SourceConfig::default(),
+        };
 
         let layers = match raw.layers {
             Some(l) => LayerConfig {
@@ -177,7 +214,7 @@ impl DomainConfig {
             required_metadata: final_required_metadata,
             type_map,
             validation_rules,
-            template_dir,
+            source,
         })
     }
 }
@@ -258,7 +295,6 @@ mod tests {
             Some("Minimal example domain for testing and as a starter")
         );
         assert!(config.metadata_library.ends_with("template_library.sysml"));
-        assert!(config.template_dir.ends_with("templates"));
 
         // Layers
         assert_eq!(config.layers.order, vec!["upper", "lower"]);

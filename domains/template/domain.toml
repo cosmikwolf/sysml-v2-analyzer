@@ -19,6 +19,11 @@ LAYER002 = "warning"
 META010 = "warning"
 FSM020 = "error"
 
+[source]
+root = "src"
+language = "rust"
+layout = "flat"
+
 [type_map.rust]
 Integer = "i32"
 Boolean = "bool"

@@ -61,18 +61,9 @@
 - [x] Metadata flattening (MetadataValue → serde_json::Value)
 - [x] Tests: 17 unit tests (flatten, extraction, gates, round-trip, determinism, write) + existing validation/integration tests
 
-## Phase 5: Code generation engine — COMPLETE
+## Phase 5: Code generation engine — REMOVED (superseded by D9)
 
-- [x] MiniJinja environment setup (trim_blocks, lstrip_blocks, keep_trailing_newline, no auto-escape)
-- [x] Template loading from `domains/<name>/templates/<language>/`
-- [x] Standard filters: `snake_case`, `pascal_case`, `screaming_snake`, `map_type` (domain-aware type mapping)
-- [x] Module template rendering (`module.<ext>.j2` → per-module source files)
-- [x] State machine template rendering (`state_machine.<ext>.j2` → per-FSM source files)
-- [x] Test template rendering (`test.<ext>.j2` → per-module test stubs)
-- [x] Spec-hash fingerprinting (SHA256 of serialized input, skip unchanged files)
-- [x] Generation report (generated/skipped file lists)
-- [x] Firmware Rust templates: `module.rs.j2`, `state_machine.rs.j2`, `test.rs.j2`
-- [x] Tests: 15 codegen tests (filters, hash, generation, skip, report) + existing validation/extraction tests
+Code generation was replaced by the audit-driven workflow. See D9 in `decisions.md`.
 
 ## Phase 6: CLI — COMPLETE
 
@@ -81,10 +72,24 @@
 - [x] `parse` command (parse only, no domain required, exit 0/2)
 - [x] `validate` command (parse + validate, exit 0/1)
 - [x] `extract` command (validate + extract to YAML/JSON, exit 0/1)
-- [x] `generate` command (full pipeline: validate → extract → codegen, exit 0/1)
+- [x] `audit` command (validate → extract → audit against source code, exit 0/1)
 - [x] `status` command (workspace summary: files, parts, FSMs, ports)
 - [x] `check` command (alias for validate)
 - [x] `init` command (create sysml.toml with domain name)
 - [x] Exit codes (0=success, 1=validation errors, 2=parse errors, 3=config errors)
 - [x] Text + JSON output formats (--format text|json)
 - [x] Include/exclude glob filtering from sysml.toml (`SysmlWorkspace::load_filtered` via globset)
+
+## Phase 7: Audit engine — COMPLETE
+
+- [x] `SourceConfig` replaces `template_dir` in `DomainConfig` (root, language, layout)
+- [x] `ExtractedAction` enriched with parameters (`ActionParameter`, `ParameterDirection`)
+- [x] Tree-sitter dependencies (`tree-sitter`, `tree-sitter-rust`, `tree-sitter-c`)
+- [x] Language query files (`languages/rust/audit.scm`, `languages/c/audit.scm`)
+- [x] `code_parser` module: tree-sitter parsing → `Vec<CodeConstruct>` (functions, structs, enums, impl blocks)
+- [x] `source_map` module: resolve module name → file path (metadata override or convention-based)
+- [x] `compare` module: diff `ExtractedModule` vs `Vec<CodeConstruct>` → `Vec<AuditItem>`
+- [x] `audit` entry point: full pipeline with `--expand`, `--uncovered`, `--module` options
+- [x] Text and JSON output formats for audit results
+- [x] `snake_case` utility moved to `util.rs`
+- [x] Tests: 16 unit tests (code_parser, source_map, compare) + 2 extraction param tests

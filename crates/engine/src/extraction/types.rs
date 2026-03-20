@@ -34,6 +34,24 @@ pub struct ExtractedPort {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExtractedAction {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parameters: Vec<ActionParameter>,
+}
+
+/// A parameter of an action definition.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ActionParameter {
+    pub name: String,
+    pub type_name: String,
+    pub direction: ParameterDirection,
+}
+
+/// Direction of an action parameter.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ParameterDirection {
+    In,
+    Out,
 }
 
 /// A connection extracted from adapter's `Connection` type.

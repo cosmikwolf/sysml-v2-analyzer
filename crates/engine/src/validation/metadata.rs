@@ -90,7 +90,7 @@ mod tests {
             },
             type_map: HashMap::new(),
             validation_rules: HashMap::new(),
-            template_dir: PathBuf::new(),
+            source: crate::domain::SourceConfig::default(),
         }
     }
 

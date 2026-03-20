@@ -13,7 +13,7 @@ sysml-v2-analyzer <command> [options]
   validate    Validate against domain rules (layer deps, metadata, FSMs)
   check       Alias for validate
   extract     Extract models to YAML/JSON files
-  generate    Full pipeline: validate → extract → generate source code
+  audit       Compare spec against source code (tree-sitter)
   status      Show workspace summary (files, parts, FSMs, ports)
   init        Create sysml.toml in current directory
 ```
@@ -34,8 +34,11 @@ sysml-v2-analyzer --format json validate
 sysml-v2-analyzer extract -o output/
 sysml-v2-analyzer extract -o output/ --extract-format json
 
-# Generate Rust source code
-sysml-v2-analyzer generate -o src/generated/ -l rust
+# Audit spec against source code
+sysml-v2-analyzer audit
+
+# Audit with JSON output
+sysml-v2-analyzer --format json audit
 
 # Show workspace info
 sysml-v2-analyzer status
@@ -68,7 +71,7 @@ sysml-v2-analyzer init firmware
 ## Dependencies
 
 - `sysml-v2-adapter` — workspace loading (for `parse` command)
-- `sysml-v2-engine` — validation, extraction, code generation
+- `sysml-v2-engine` — validation, extraction, audit
 - `clap` — argument parsing
 
 ## Design

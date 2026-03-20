@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use sysml_v2_adapter::SysmlWorkspace;
+use sysml_v2_engine::audit;
 use sysml_v2_engine::diagnostic::Severity;
 use sysml_v2_engine::domain::{DomainConfig, WorkspaceConfig};
 use sysml_v2_engine::extraction;
@@ -59,6 +60,20 @@ enum Command {
         extract_format: ExtractFormat,
     },
 
+    /// Compare spec against source code
+    Audit {
+        /// Show code not covered by spec
+        #[arg(long)]
+        uncovered: bool,
+
+        /// Expand macros before parsing
+        #[arg(long)]
+        expand: bool,
+
+        /// Audit a specific module
+        module: Option<String>,
+    },
+
     /// Show workspace status summary
     Status,
 
@@ -104,6 +119,11 @@ fn run(cli: &Cli) -> Result<ExitCode, CliError> {
             output,
             extract_format,
         } => cmd_extract(cli, output, extract_format),
+        Command::Audit {
+            uncovered,
+            expand,
+            module,
+        } => cmd_audit(cli, *uncovered, *expand, module.as_deref()),
         Command::Status => cmd_status(cli),
         Command::Init { domain } => cmd_init(domain),
     }
@@ -127,6 +147,9 @@ enum CliError {
 
     #[error("extraction error: {0}")]
     Extraction(#[from] extraction::ExtractionError),
+
+    #[error("audit error: {0}")]
+    Audit(#[from] audit::AuditError),
 
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -375,6 +398,90 @@ fn cmd_extract(
     }
 
     Ok(ExitCode::SUCCESS)
+}
+
+fn cmd_audit(
+    cli: &Cli,
+    uncovered: bool,
+    expand: bool,
+    module: Option<&str>,
+) -> Result<ExitCode, CliError> {
+    let resolved = resolve_config(cli)?;
+    let ws = load_workspace(&resolved)?;
+    let validation_result = validation::validate(&ws, &resolved.domain_config);
+
+    let error_count = validation_result
+        .diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Error)
+        .count();
+
+    if error_count > 0 {
+        for d in &validation_result.diagnostics {
+            if d.severity == Severity::Error {
+                eprintln!("{d}");
+            }
+        }
+        eprintln!("\nAudit blocked: {error_count} validation error(s)");
+        return Ok(ExitCode::from(1));
+    }
+
+    let extraction_result =
+        extraction::extract(&ws, &resolved.domain_config, &validation_result)?;
+
+    // Find languages directory relative to the domain directory
+    let languages_dir = resolved.workspace_root.join("domains").join("..").join("..").join("languages");
+    // Also try relative to the binary
+    let languages_dir = if languages_dir.join("rust").join("audit.scm").exists() {
+        languages_dir
+    } else {
+        // Fall back: look next to the workspace root
+        let alt = resolved.workspace_root.join("languages");
+        if alt.join("rust").join("audit.scm").exists() {
+            alt
+        } else {
+            // Last resort: look relative to the executable
+            let exe_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .unwrap_or_default();
+            exe_dir.join("languages")
+        }
+    };
+
+    let report = audit::audit(
+        &extraction_result,
+        &resolved.domain_config,
+        &resolved.workspace_root,
+        &languages_dir,
+        uncovered,
+        expand,
+        module,
+    )?;
+
+    let summary = report.summary();
+
+    match cli.format {
+        OutputFormat::Text => {
+            print!("{}", audit::format_text(&report));
+            if !cli.quiet {
+                println!(
+                    "Audit: {} match(es), {} missing, {} mismatch(es), {} uncovered",
+                    summary.matches, summary.missing, summary.mismatches, summary.uncovered
+                );
+            }
+        }
+        OutputFormat::Json => {
+            let json = serde_json::to_string_pretty(&report).unwrap();
+            println!("{json}");
+        }
+    }
+
+    if summary.missing > 0 || summary.mismatches > 0 {
+        Ok(ExitCode::from(1))
+    } else {
+        Ok(ExitCode::SUCCESS)
+    }
 }
 
 fn cmd_status(cli: &Cli) -> Result<ExitCode, CliError> {

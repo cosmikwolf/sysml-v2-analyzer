@@ -77,7 +77,7 @@ Decisions that are expensive to reverse. Each entry captures what we decided, wh
 ## D4: MiniJinja for template engine
 
 **Date:** 2026-03-20
-**Status:** Accepted
+**Status:** Superseded by D9
 
 **Context:** Code generation needs a runtime template engine (templates live on disk in domain directories, not compiled into the binary). Evaluated MiniJinja, Tera, Handlebars, and Askama.
 
@@ -132,7 +132,7 @@ The engine merges them: domain defaults ← project overrides.
 ## D6: `.j2` template extension with double-extension naming
 
 **Date:** 2026-03-20
-**Status:** Accepted
+**Status:** Superseded by D9
 
 **Context:** Need a file naming convention for MiniJinja codegen templates that makes the output type obvious, works with editor tooling, and avoids MiniJinja's auto-escape triggers.
 
@@ -188,7 +188,7 @@ Domains configure severity per rule ID in `domain.toml`. Projects override sever
 ## D8: Protected user code regions in generated files
 
 **Date:** 2026-03-20
-**Status:** Accepted
+**Status:** Superseded by D9
 
 **Context:** Code generation templates produce skeleton files with `todo!()` stubs. Users fill in method bodies, struct fields, and error variants. But regeneration (when the spec changes) overwrites the entire file, losing hand-written code.
 
@@ -205,3 +205,50 @@ Domains configure severity per rule ID in `domain.toml`. Projects override sever
 - **Separate generated/handwritten files** — e.g., generate a trait, implement by hand; adds boilerplate and indirection
 
 **Reconsider if:** Templates become rich enough to generate complete implementations (unlikely for embedded firmware with hardware-specific concerns).
+
+---
+
+## D9: Audit-driven workflow replaces code generation
+
+**Date:** 2026-03-20
+**Status:** Accepted
+
+**Context:** The original pipeline was parse → validate → extract → generate. Code generation (D4, D6, D8) produced skeleton files with protected user code regions, using MiniJinja templates. In practice, real firmware code is hand-written — the generated skeletons required so much manual filling that the code generation step added more friction than value. The actual need is: "does the code I wrote match what the spec says?"
+
+**Decision:** Replace the `generate` pipeline stage with `audit`. The new pipeline is: parse → validate → extract → audit. Audit uses tree-sitter (D10) to parse existing source files and compares their structure against the extracted spec. It reports matches, mismatches, missing items, and uncovered code.
+
+**Why:**
+- Firmware code is hand-written (hardware init, interrupt handlers, DMA, etc.) — generation can't produce it
+- What developers actually need is a check that their code structure matches the spec
+- Audit is non-destructive — it reports, doesn't modify
+- Eliminates the MiniJinja dependency and template maintenance burden
+- Works with existing codebases, not just greenfield projects
+
+**Supersedes:** D4 (MiniJinja), D6 (template extensions), D8 (protected regions)
+
+**Reconsider if:** A domain emerges where code generation from specs is genuinely useful (e.g., protocol buffer-style data structures). At that point, code generation could be added back as an optional stage alongside audit.
+
+---
+
+## D10: Tree-sitter for source code parsing in audit
+
+**Date:** 2026-03-20
+**Status:** Accepted
+
+**Context:** The audit stage needs to parse source code (Rust, C) to extract structural constructs (functions, structs, enums, impl blocks) for comparison against the spec. Options: regex, syn (Rust-only), tree-sitter.
+
+**Decision:** Use tree-sitter with compiled-in grammars (`tree-sitter-rust`, `tree-sitter-c`) and external query files (`languages/<lang>/audit.scm`).
+
+**Why:**
+- **Multi-language** — same API for Rust and C, easily extensible to more languages
+- **Fault-tolerant** — parses malformed code without panicking, critical for in-progress development
+- **Query-based** — `.scm` query files can be edited without recompiling, allowing domain-specific customization
+- **Structural** — extracts named constructs with source locations, not just text patterns
+- **Fast** — sub-millisecond parse times for typical source files
+
+**Rejected alternatives:**
+- **Regex** — fragile, can't handle nested structures, no error recovery
+- **syn** — Rust-only, no C support, full AST is more than we need
+- **Custom parser** — unnecessary given tree-sitter's maturity
+
+**Reconsider if:** Tree-sitter's Rust bindings have breaking API changes that are expensive to track, or if a single-language project doesn't need multi-language support.

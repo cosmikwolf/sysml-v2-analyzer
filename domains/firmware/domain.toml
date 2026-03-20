@@ -27,6 +27,11 @@ FSM022 = "warning"
 PORT030 = "error"
 TYPE040 = "warning"
 
+[source]
+root = "src"
+language = "rust"
+layout = "flat"
+
 [type_map.rust]
 Integer = "i32"
 Boolean = "bool"

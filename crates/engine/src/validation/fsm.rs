@@ -277,7 +277,7 @@ mod tests {
     use std::collections::HashMap;
     use std::path::PathBuf;
 
-    use crate::domain::{DomainConfig, LayerConfig, RequiredMetadataConfig};
+    use crate::domain::{DomainConfig, LayerConfig, RequiredMetadataConfig, SourceConfig};
     use sysml_v2_adapter::SysmlWorkspace;
 
     fn minimal_config() -> DomainConfig {
@@ -294,7 +294,7 @@ mod tests {
             },
             type_map: HashMap::new(),
             validation_rules: HashMap::new(),
-            template_dir: PathBuf::new(),
+            source: SourceConfig::default(),
         }
     }
 
