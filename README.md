@@ -15,6 +15,61 @@ The analyzer reads SysML v2 specifications and transforms them through a pipelin
 3. **Extract** — Flatten SysML models into YAML/JSON
 4. **Generate** — Render MiniJinja templates into source files
 
+## Quick start
+
+```bash
+cd tools/sysml-v2-analyzer
+
+# Build
+cargo build
+
+# Run all tests (115 tests)
+cargo test --workspace
+
+# Lint
+cargo clippy --workspace
+```
+
+## CLI usage
+
+```bash
+# Parse .sysml files and report syntax errors
+sysml-v2-analyzer parse spec/
+
+# Validate against domain rules
+sysml-v2-analyzer validate
+
+# Extract models to YAML
+sysml-v2-analyzer extract -o output/
+
+# Full pipeline: validate → extract → generate Rust source
+sysml-v2-analyzer generate -o src/generated/ -l rust
+
+# Show workspace summary
+sysml-v2-analyzer status
+
+# Create a new sysml.toml
+sysml-v2-analyzer init firmware
+```
+
+### Global options
+
+| Flag | Description |
+|---|---|
+| `--config <path>` | Path to `sysml.toml` (default: walk up from cwd) |
+| `--domain <name>` | Domain override (default: from `sysml.toml`) |
+| `--format text\|json` | Output format (default: `text`) |
+| `-q, --quiet` | Errors only |
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | Validation errors |
+| 2 | Parse errors |
+| 3 | Configuration error |
+
 ## Architecture
 
 ```
@@ -34,7 +89,7 @@ syster-base (external)       ← SysML v2 parser + HIR
   └─────────┘
 ```
 
-## Domain boundary
+### Domain boundary
 
 | Layer | Component | Domain scope |
 |---|---|---|
@@ -47,48 +102,31 @@ Adding a new domain = creating a directory under `domains/` with a `domain.toml`
 
 ## Crates
 
-| Crate | Status | Purpose |
-|---|---|---|
-| [`sysml-v2-adapter`](crates/adapter/) | Implemented | Domain-agnostic SysML v2 query library (metadata, connections, FSMs) |
-| [`sysml-v2-engine`](crates/engine/) | Not started | Domain-agnostic pipeline framework (validation, extraction, codegen) |
-| [`sysml-v2-analyzer`](crates/cli/) | Not started | CLI binary — discovers config, loads domain, runs pipeline |
+| Crate | Purpose |
+|---|---|
+| [`sysml-v2-adapter`](crates/adapter/) | Domain-agnostic SysML v2 query library (metadata, connections, FSMs) |
+| [`sysml-v2-engine`](crates/engine/) | Domain-agnostic pipeline framework (validation, extraction, codegen) |
+| [`sysml-v2-analyzer`](crates/cli/) | CLI binary — discovers config, loads domain, runs pipeline |
 
 ## Domains
 
-| Domain | Status | Location |
+| Domain | Location | Description |
 |---|---|---|
-| firmware | Planned (first domain) | [`domains/firmware/`](domains/firmware/) |
+| firmware | [`domains/firmware/`](domains/firmware/) | Embedded firmware: 5 layers, memory/concurrency/error metadata, Rust + C type maps |
+| template | [`domains/template/`](domains/template/) | Minimal starter domain for testing and as a base for new domains |
 
-## Quick start
+## Configuration
 
-```bash
-cd tools/sysml-v2-analyzer
+Projects use two config files:
 
-# Build
-cargo build
+- **`domains/<name>/domain.toml`** — Shared domain definition (layers, required metadata, type maps, validation rule defaults)
+- **`sysml.toml`** — Project-level config (selects domain, overrides rule severities)
 
-# Run adapter tests (the only implemented crate so far)
-cargo test -p sysml-v2-adapter
-
-# Lint
-cargo clippy --workspace
-```
-
-## Usage (adapter crate)
-
-```rust
-use sysml_v2_adapter::{SysmlWorkspace, SymbolKind};
-use sysml_v2_adapter::metadata_extractor::extract_metadata;
-use sysml_v2_adapter::connection_resolver::resolve_connections;
-use sysml_v2_adapter::state_machine_extractor::extract_state_machines;
-
-let ws = SysmlWorkspace::load("spec/".as_ref())?;
-
-for (file, sym) in ws.symbols_of_kind(SymbolKind::PartDefinition) {
-    let metadata = extract_metadata(file, sym);
-    let connections = resolve_connections(file, sym);
-    let machines = extract_state_machines(file, sym);
-}
+Example `sysml.toml`:
+```toml
+[workspace]
+domain = "firmware"
+include = ["spec/**/*.sysml"]
 ```
 
 ## Test fixtures
@@ -113,5 +151,6 @@ Runs on the **host machine** (not ESP32). `.cargo/config.toml` overrides the par
 ## Docs
 
 - [Architecture Overview](docs/00-architecture.md)
+- [Decisions](docs/decisions.md) — Architecture Decision Records
 - [Implementation Phases](docs/05-implementation-phases.md)
 - [Archive](docs/archive/) — pre-restructure docs (syster-base evaluation, standards analysis)
