@@ -34,7 +34,7 @@ pub enum ExtractionError {
     Io(#[from] std::io::Error),
 
     #[error("YAML serialization error: {0}")]
-    Yaml(#[from] serde_yaml::Error),
+    Yaml(#[from] serde_yml::Error),
 
     #[error("JSON serialization error: {0}")]
     Json(#[from] serde_json::Error),
@@ -194,7 +194,7 @@ pub fn write_extraction(
 
 fn serialize<T: serde::Serialize>(value: &T, format: OutputFormat) -> Result<String, ExtractionError> {
     match format {
-        OutputFormat::Yaml => Ok(serde_yaml::to_string(value)?),
+        OutputFormat::Yaml => Ok(serde_yml::to_string(value)?),
         OutputFormat::Json => Ok(serde_json::to_string_pretty(value)?),
     }
 }
@@ -507,8 +507,8 @@ mod tests {
 
         // Serialize to YAML and back
         for module in &result.modules {
-            let yaml = serde_yaml::to_string(module).unwrap();
-            let deserialized: ExtractedModule = serde_yaml::from_str(&yaml).unwrap();
+            let yaml = serde_yml::to_string(module).unwrap();
+            let deserialized: ExtractedModule = serde_yml::from_str(&yaml).unwrap();
             assert_eq!(module, &deserialized, "YAML round-trip failed for {}", module.name);
         }
     }
