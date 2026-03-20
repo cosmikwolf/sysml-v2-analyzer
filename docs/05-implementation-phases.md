@@ -5,7 +5,7 @@
 | Phase | Component | Status | Detail doc |
 |---|---|---|---|
 | 1 | Adapter crate | COMPLETE | [phase-1-adapter.md](phase-1-adapter.md) |
-| 2 | Engine scaffold + domain config | Not started | [phase-2-engine-scaffold.md](phase-2-engine-scaffold.md) |
+| 2 | Engine scaffold + domain config | COMPLETE | [phase-2-engine-scaffold.md](phase-2-engine-scaffold.md) |
 | 3 | Validation engine | Not started | [phase-3-validation.md](phase-3-validation.md) |
 | 4 | Extraction engine | Not started | [phase-4-extraction.md](phase-4-extraction.md) |
 | 5 | Code generation engine | Not started | [phase-5-codegen.md](phase-5-codegen.md) |
@@ -23,18 +23,18 @@
 - [x] Unit tests (36 tests across all modules)
 - [x] `cargo clippy` clean
 
-## Phase 2: Engine scaffold + domain config
+## Phase 2: Engine scaffold + domain config — COMPLETE
 
-- [ ] Restructure workspace: remove validate/extract/gencontract/codegen scaffolds
-- [ ] Create `crates/engine/` with module stubs
-- [ ] Create `domains/template/` — minimal domain for engine tests + starter
-- [ ] Create `domains/firmware/` — firmware domain with `domain.toml` + `firmware_library.sysml`
-- [ ] Implement `domain.rs` — load + merge domain.toml + sysml.toml
-- [ ] Implement `diagnostic.rs` — shared Diagnostic type
-- [ ] Create example `sysml.toml` at workspace root
-- [ ] Update Cargo.toml workspace members
-- [ ] Update CLI crate to depend on engine instead of old crates
-- [ ] Tests: domain config loading, merging, severity overrides
+- [x] Restructure workspace: remove validate/extract/gencontract/codegen scaffolds
+- [x] Create `crates/engine/` with module stubs
+- [x] Create `domains/template/` — minimal domain for engine tests + starter
+- [x] Create `domains/firmware/` — firmware domain with `domain.toml` + `firmware_library.sysml`
+- [x] Implement `domain.rs` — load + merge domain.toml + sysml.toml
+- [x] Implement `diagnostic.rs` — shared Diagnostic type
+- [x] Create example `sysml.toml` at workspace root
+- [x] Update Cargo.toml workspace members
+- [x] Update CLI crate to depend on engine instead of old crates
+- [x] Tests: domain config loading, merging, severity overrides (11 tests)
 
 ## Phase 3: Validation engine
 
