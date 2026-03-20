@@ -5,4 +5,7 @@
 
 pub mod diagnostic;
 pub mod domain;
+pub mod extraction;
 pub mod validation;
+
+pub(crate) mod util;

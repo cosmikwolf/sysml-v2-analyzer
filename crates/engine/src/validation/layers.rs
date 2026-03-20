@@ -9,13 +9,13 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use petgraph::graph::{DiGraph, NodeIndex};
-use sysml_v2_adapter::workspace::extract_definition_body;
-use sysml_v2_adapter::{HirSymbol, SysmlWorkspace, SymbolKind};
+use sysml_v2_adapter::{SysmlWorkspace, SymbolKind};
 
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::domain::DomainConfig;
 
 use super::{effective_severity, to_display_line};
+use crate::util::extract_layer_for_part;
 
 /// Information about a part definition with layer assignment.
 #[derive(Debug, Clone)]
@@ -227,35 +227,6 @@ pub(crate) fn check_layer_deps(
     }
 
     (diagnostics, parts_checked, connections_checked)
-}
-
-/// Extract the layer value for a part definition.
-///
-/// Domain-agnostic: scans the part's body text for `::layer_name` where
-/// `layer_name` matches one of the configured layer names.
-fn extract_layer_for_part(
-    file: &sysml_v2_adapter::ParsedFile,
-    part_symbol: &HirSymbol,
-    known_layers: &HashSet<String>,
-) -> Option<String> {
-    let body = extract_definition_body(&file.source, part_symbol)?;
-
-    // Look for the first `::layer_name` where layer_name is a known layer.
-    // We only scan the top-level body (not nested state def blocks), so we
-    // search for the pattern before any nested `state def` or `part def`.
-    let search_region = if let Some(pos) = body.find("state def") {
-        &body[..pos]
-    } else {
-        &body
-    };
-
-    for layer_name in known_layers {
-        let pattern = format!("::{}", layer_name);
-        if search_region.contains(&pattern) {
-            return Some(layer_name.clone());
-        }
-    }
-    None
 }
 
 #[cfg(test)]

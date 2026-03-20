@@ -7,7 +7,7 @@
 | 1 | Adapter crate | COMPLETE | [phase-1-adapter.md](phase-1-adapter.md) |
 | 2 | Engine scaffold + domain config | COMPLETE | [phase-2-engine-scaffold.md](phase-2-engine-scaffold.md) |
 | 3 | Validation engine | COMPLETE | [phase-3-validation.md](phase-3-validation.md) |
-| 4 | Extraction engine | Not started | [phase-4-extraction.md](phase-4-extraction.md) |
+| 4 | Extraction engine | COMPLETE | [phase-4-extraction.md](phase-4-extraction.md) |
 | 5 | Code generation engine | Not started | [phase-5-codegen.md](phase-5-codegen.md) |
 | 6 | CLI | Not started | [phase-6-cli.md](phase-6-cli.md) |
 
@@ -47,16 +47,19 @@
 - [x] Text output formatting (Diagnostic Display impl from Phase 2)
 - [x] Tests: 25 unit tests (one+ per rule) + 2 integration tests + 2 config override tests
 
-## Phase 4: Extraction engine
+## Phase 4: Extraction engine — COMPLETE
 
-- [ ] Module extraction (part def → `ExtractedModule` with flattened metadata)
-- [ ] State machine extraction (adapter `StateMachine` → serializable `ExtractedStateMachine`)
-- [ ] Interface extraction (port defs → function signatures)
-- [ ] Architecture summary (workspace-level: modules, deps, constraints)
-- [ ] YAML output
-- [ ] JSON output
-- [ ] Validation gate (refuse extraction if errors exist)
-- [ ] Tests: round-trip, determinism, validation gate
+- [x] Module extraction (PartDefinition → `ExtractedModule` with flattened metadata, ports, actions, connections, FSMs)
+- [x] State machine extraction (adapter `StateMachine` → serializable `ExtractedStateMachine`)
+- [x] Port extraction (PortUsage symbols + body text conjugation detection)
+- [x] Action extraction (body text parsing for `action def` names)
+- [x] Architecture summary (source files, module summaries, dependency graph from PartUsage→supertypes)
+- [x] YAML output (`write_extraction` with `OutputFormat::Yaml`)
+- [x] JSON output (`write_extraction` with `OutputFormat::Json`)
+- [x] Validation gate (refuse extraction if Error-severity diagnostics exist, warnings allowed)
+- [x] Shared `extract_layer_for_part` utility (moved from validation/layers.rs to util.rs)
+- [x] Metadata flattening (MetadataValue → serde_json::Value)
+- [x] Tests: 17 unit tests (flatten, extraction, gates, round-trip, determinism, write) + existing validation/integration tests
 
 ## Phase 5: Code generation engine
 
