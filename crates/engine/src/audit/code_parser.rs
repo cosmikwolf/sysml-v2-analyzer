@@ -9,6 +9,13 @@ use tree_sitter::StreamingIterator;
 
 use super::AuditError;
 
+/// A method signature within a trait definition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraitMethod {
+    pub name: String,
+    pub parameters: Vec<ParsedParameter>,
+}
+
 /// A structural construct extracted from source code.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CodeConstruct {
@@ -17,6 +24,7 @@ pub struct CodeConstruct {
     pub parameters: Vec<ParsedParameter>,
     pub fields: Vec<String>,
     pub variants: Vec<String>,
+    pub methods: Vec<TraitMethod>,
     pub line: usize,
 }
 
@@ -27,6 +35,7 @@ pub enum ConstructKind {
     Struct,
     Enum,
     ImplBlock,
+    Trait,
 }
 
 /// A parsed function parameter.
@@ -119,6 +128,9 @@ fn match_to_construct(
     if capture_names.contains(&"impl.def") {
         return parse_impl_match(query, m, source);
     }
+    if capture_names.contains(&"trait.def") {
+        return parse_trait_match(query, m, source);
+    }
 
     None
 }
@@ -168,6 +180,7 @@ fn parse_function_match(
         parameters,
         fields: Vec::new(),
         variants: Vec::new(),
+        methods: Vec::new(),
         line,
     })
 }
@@ -193,6 +206,7 @@ fn parse_struct_match(
         parameters: Vec::new(),
         fields,
         variants: Vec::new(),
+        methods: Vec::new(),
         line,
     })
 }
@@ -218,6 +232,7 @@ fn parse_enum_match(
         parameters: Vec::new(),
         fields: Vec::new(),
         variants,
+        methods: Vec::new(),
         line,
     })
 }
@@ -237,8 +252,65 @@ fn parse_impl_match(
         parameters: Vec::new(),
         fields: Vec::new(),
         variants: Vec::new(),
+        methods: Vec::new(),
         line,
     })
+}
+
+fn parse_trait_match(
+    query: &tree_sitter::Query,
+    m: &tree_sitter::QueryMatch,
+    source: &str,
+) -> Option<CodeConstruct> {
+    let name = get_capture_text(query, m, source, "trait.name")?.to_string();
+    let def_node = get_capture_node(query, m, "trait.def")?;
+    let line = def_node.start_position().row + 1;
+
+    let methods = if let Some(body_node) = get_capture_node(query, m, "trait.body") {
+        extract_trait_methods(body_node, source)
+    } else {
+        Vec::new()
+    };
+
+    Some(CodeConstruct {
+        kind: ConstructKind::Trait,
+        name,
+        parameters: Vec::new(),
+        fields: Vec::new(),
+        variants: Vec::new(),
+        methods,
+        line,
+    })
+}
+
+/// Extract method signatures from a trait body (declaration_list node).
+fn extract_trait_methods(node: tree_sitter::Node, source: &str) -> Vec<TraitMethod> {
+    let mut methods = Vec::new();
+    let mut cursor = node.walk();
+
+    for child in node.children(&mut cursor) {
+        if child.kind() == "function_signature_item" {
+            let mut name = String::new();
+            let mut parameters = Vec::new();
+            let mut inner_cursor = child.walk();
+            for sig_child in child.children(&mut inner_cursor) {
+                match sig_child.kind() {
+                    "identifier" if name.is_empty() => {
+                        name = source[sig_child.byte_range()].to_string();
+                    }
+                    "parameters" => {
+                        parameters = parse_parameters(sig_child, source, "rust");
+                    }
+                    _ => {}
+                }
+            }
+            if !name.is_empty() {
+                methods.push(TraitMethod { name, parameters });
+            }
+        }
+    }
+
+    methods
 }
 
 /// Parse function parameters from the parameters node.
@@ -462,6 +534,27 @@ impl Foo {
             .collect();
         assert_eq!(impls.len(), 1);
         assert_eq!(impls[0].name, "Foo");
+    }
+
+    #[test]
+    fn test_parse_rust_trait() {
+        let source = r#"
+pub trait AudioDataPort {
+    fn write(&mut self, data: &[u8]);
+    fn flush(&self);
+}
+"#;
+        let constructs = parse_source(source, "rust", &languages_dir()).unwrap();
+
+        let traits: Vec<_> = constructs
+            .iter()
+            .filter(|c| c.kind == ConstructKind::Trait)
+            .collect();
+        assert_eq!(traits.len(), 1);
+        assert_eq!(traits[0].name, "AudioDataPort");
+        assert_eq!(traits[0].methods.len(), 2);
+        assert_eq!(traits[0].methods[0].name, "write");
+        assert_eq!(traits[0].methods[1].name, "flush");
     }
 
     #[test]

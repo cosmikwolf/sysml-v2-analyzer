@@ -21,3 +21,8 @@
 (impl_item
   type: (_) @impl.type
   body: (declaration_list) @impl.body) @impl.def
+
+;; Traits
+(trait_item
+  name: (type_identifier) @trait.name
+  body: (declaration_list) @trait.body) @trait.def

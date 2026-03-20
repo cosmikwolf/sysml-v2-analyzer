@@ -230,6 +230,32 @@ pub fn compare_module(
         }
     }
 
+    // Compare: spec ports → code traits
+    for port in &module.ports {
+        if let Some(ref port_type) = port.port_type {
+            let found = code.iter().enumerate().find(|(_, c)| {
+                c.kind == ConstructKind::Trait && c.name == *port_type
+            });
+
+            if let Some((idx, _)) = found {
+                matched_code_indices[idx] = true;
+                items.push(AuditItem::Match {
+                    kind: "port_trait".to_string(),
+                    name: port_type.clone(),
+                });
+            } else {
+                items.push(AuditItem::Missing {
+                    kind: "port_trait".to_string(),
+                    name: port_type.clone(),
+                    detail: format!(
+                        "trait {} not found in source (for port {})",
+                        port_type, port.name
+                    ),
+                });
+            }
+        }
+    }
+
     // Report uncovered code items
     if show_uncovered {
         for (idx, construct) in code.iter().enumerate() {
@@ -239,6 +265,7 @@ pub fn compare_module(
                     ConstructKind::Struct => "struct",
                     ConstructKind::Enum => "enum",
                     ConstructKind::ImplBlock => "impl",
+                    ConstructKind::Trait => "trait",
                 };
                 items.push(AuditItem::Uncovered {
                     kind: kind.to_string(),
@@ -317,6 +344,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: vec!["config".to_string(), "state".to_string()],
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 1,
             },
             CodeConstruct {
@@ -328,6 +356,7 @@ mod tests {
                 }],
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 5,
             },
             CodeConstruct {
@@ -339,6 +368,7 @@ mod tests {
                 }],
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 10,
             },
             CodeConstruct {
@@ -352,6 +382,7 @@ mod tests {
                     "Connected".to_string(),
                     "Streaming".to_string(),
                 ],
+                methods: Vec::new(),
                 line: 15,
             },
         ]
@@ -398,6 +429,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 1,
             },
             // Init function with wrong param count
@@ -407,6 +439,7 @@ mod tests {
                 parameters: Vec::new(), // no params → mismatch
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 5,
             },
         ];
@@ -436,6 +469,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 1,
             },
             CodeConstruct {
@@ -444,6 +478,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 20,
             },
         ];
@@ -481,6 +516,7 @@ mod tests {
             parameters: Vec::new(),
             fields: Vec::new(),
             variants: Vec::new(),
+            methods: Vec::new(),
             line: 1,
         }];
 
@@ -524,6 +560,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 1,
             },
             CodeConstruct {
@@ -535,6 +572,7 @@ mod tests {
                 }],
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 5,
             },
         ];
@@ -570,6 +608,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 1,
             },
             CodeConstruct {
@@ -581,6 +620,7 @@ mod tests {
                 }],
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 5,
             },
         ];
@@ -616,6 +656,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 1,
             },
             CodeConstruct {
@@ -627,6 +668,7 @@ mod tests {
                 }],
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 5,
             },
         ];
@@ -662,6 +704,7 @@ mod tests {
                 parameters: Vec::new(),
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 1,
             },
             CodeConstruct {
@@ -673,6 +716,7 @@ mod tests {
                 }],
                 fields: Vec::new(),
                 variants: Vec::new(),
+                methods: Vec::new(),
                 line: 5,
             },
         ];
@@ -701,5 +745,81 @@ mod tests {
             "None type_map should still match by count: {:?}",
             items
         );
+    }
+
+    #[test]
+    fn test_compare_port_trait_match() {
+        use crate::extraction::ExtractedPort;
+
+        let mut module = test_module();
+        module.actions.clear();
+        module.state_machines.clear();
+        module.ports = vec![ExtractedPort {
+            name: "audio_out".to_string(),
+            port_type: Some("AudioDataPort".to_string()),
+            conjugated: false,
+        }];
+
+        let code = vec![
+            CodeConstruct {
+                kind: ConstructKind::Struct,
+                name: "BtA2dpSink".to_string(),
+                parameters: Vec::new(),
+                fields: Vec::new(),
+                variants: Vec::new(),
+                methods: Vec::new(),
+                line: 1,
+            },
+            CodeConstruct {
+                kind: ConstructKind::Trait,
+                name: "AudioDataPort".to_string(),
+                parameters: Vec::new(),
+                fields: Vec::new(),
+                variants: Vec::new(),
+                methods: vec![super::super::code_parser::TraitMethod {
+                    name: "write".to_string(),
+                    parameters: Vec::new(),
+                }],
+                line: 10,
+            },
+        ];
+
+        let items = compare_module(&module, &code, false, None);
+        let port_matches: Vec<_> = items
+            .iter()
+            .filter(|i| matches!(i, AuditItem::Match { kind, .. } if kind == "port_trait"))
+            .collect();
+        assert_eq!(port_matches.len(), 1, "port_trait should match: {:?}", items);
+    }
+
+    #[test]
+    fn test_compare_port_trait_missing() {
+        use crate::extraction::ExtractedPort;
+
+        let mut module = test_module();
+        module.actions.clear();
+        module.state_machines.clear();
+        module.ports = vec![ExtractedPort {
+            name: "audio_out".to_string(),
+            port_type: Some("AudioDataPort".to_string()),
+            conjugated: false,
+        }];
+
+        let code = vec![CodeConstruct {
+            kind: ConstructKind::Struct,
+            name: "BtA2dpSink".to_string(),
+            parameters: Vec::new(),
+            fields: Vec::new(),
+            variants: Vec::new(),
+            methods: Vec::new(),
+            line: 1,
+        }];
+
+        let items = compare_module(&module, &code, false, None);
+        let port_missing: Vec<_> = items
+            .iter()
+            .filter(|i| matches!(i, AuditItem::Missing { kind, .. } if kind == "port_trait"))
+            .collect();
+        assert_eq!(port_missing.len(), 1, "port_trait should be missing: {:?}", items);
     }
 }
