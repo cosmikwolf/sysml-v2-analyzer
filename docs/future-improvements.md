@@ -6,9 +6,9 @@ Ideas and enhancements that are out of scope for the current implementation but 
 
 ## Audit enhancements
 
-- **Type-aware parameter comparison** — Currently parameter comparison is count-based. Could use domain type maps to compare spec types (SysML) against code types (Rust/C) semantically.
-- **Trait/interface matching** — Match spec port definitions against Rust trait definitions or C header declarations.
-- **Connection topology audit** — Verify that inter-module connections described in spec are reflected as actual function calls or trait bounds in code.
+- ~~**Type-aware parameter comparison**~~ — **Done.** `compare_module()` accepts a `type_map` to translate SysML types to target language types. Reference qualifiers (`&`, `&mut`) are stripped before comparison.
+- ~~**Trait/interface matching**~~ — **Done.** Spec port definitions with `port_type` match against `trait` definitions in Rust source code. Tree-sitter query extracts trait names and method signatures.
+- **Connection topology audit** — Verify that inter-module connections described in spec are reflected as actual function calls or trait bounds in code. *Deferred:* requires cross-file analysis and call graph construction, which is significantly more complex than single-file structural matching. Worth revisiting when multi-module audit is needed.
 - **Incremental audit** — Cache previous audit results and only re-audit modules whose source files changed (using file hashes).
 - **Custom query patterns** — Allow domains to provide additional `.scm` query files for domain-specific constructs.
 
