@@ -2,7 +2,7 @@
 
 **Crate:** `sysml-v2-analyzer`
 **Domain scope:** General orchestration — domain-specific behavior comes from the loaded domain
-**Status:** Not yet implemented
+**Status:** Implemented
 
 ## Purpose
 

@@ -2,7 +2,7 @@
 
 **Crate:** `sysml-v2-engine`
 **Domain scope:** General-purpose pipeline framework — domain rules come from config + templates
-**Status:** Not yet implemented
+**Status:** Implemented
 
 ## Purpose
 

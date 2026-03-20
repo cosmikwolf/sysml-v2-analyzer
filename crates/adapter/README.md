@@ -128,4 +128,4 @@ match classify_symbol(file, symbol) {
 cargo test -p sysml-v2-adapter
 ```
 
-45 tests: 36 unit tests across all modules + 9 integration tests exercising the full pipeline on fixture data.
+57 tests: 48 unit tests (including property-based tests) across all modules + 9 integration tests exercising the full pipeline on fixture data.

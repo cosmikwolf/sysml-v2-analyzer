@@ -2,7 +2,7 @@
 
 **Location:** `domains/<name>/`
 **Domain scope:** Each directory is a self-contained domain definition
-**Status:** Not yet implemented (firmware domain planned as first)
+**Status:** Implemented (firmware and template domains)
 
 ## Purpose
 

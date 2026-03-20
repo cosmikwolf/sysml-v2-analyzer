@@ -29,25 +29,21 @@ cargo clippy --workspace         # lint — must be clean
 | File | Purpose |
 |---|---|
 | `docs/00-architecture.md` | System diagram, crate roles, data flow |
-| `docs/decisions.md` | Architecture Decision Records (D1–D7+) |
+| `docs/decisions.md` | Architecture Decision Records (D1–D8) |
 | `docs/05-implementation-phases.md` | Phase checklist with status tracking |
-| `docs/phase-{1..6}-*.md` | Detailed spec for each phase |
+| `docs/archive/phase-{1..6}-*.md` | Detailed spec for each phase (archived) |
 
-## Phase completion protocol
+## Documentation protocol
 
-**After implementing each phase**, before the final commit, you MUST:
+**After implementing a feature or fix**, before the final commit:
 
-1. **Update `docs/05-implementation-phases.md`**:
-   - Change the phase status in the overview table (e.g. `Not started` → `COMPLETE`)
-   - Check off all completed items in the phase's checklist section (`- [ ]` → `- [x]`)
+1. **Update `docs/decisions.md`** if a new architecture decision was made (append `## D{N}`)
 
-2. **Update `docs/decisions.md`** (if applicable):
-   - If any new architecture decisions were made during the phase, append a new `## D{N}` entry
-   - If an existing decision was reconsidered or modified, update its status and add a note
+2. **Update `docs/05-implementation-phases.md`** if the change relates to a tracked item
 
-3. **Update the phase spec doc** (`docs/phase-{N}-*.md`) if the implementation deviated from the spec in any material way (different approach, dropped items, added items).
+3. **Keep READMEs accurate** — if test counts, command lists, or feature descriptions change, update the relevant README
 
-4. **Commit all doc updates together with the implementation** in the phase's final commit, or as a separate doc-update commit immediately after — do not leave docs out of date across commits.
+4. **Commit docs with the implementation** — do not leave docs out of date across commits
 
 5. **Verify before committing**:
    - `cargo test --workspace` — all tests pass

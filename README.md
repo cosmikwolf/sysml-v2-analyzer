@@ -13,7 +13,7 @@ The analyzer reads SysML v2 specifications and transforms them through a pipelin
 1. **Parse** — Load `.sysml` files via syster-base into a queryable workspace
 2. **Validate** — Check domain rules (layer dependencies, required metadata, FSM well-formedness)
 3. **Extract** — Flatten SysML models into YAML/JSON
-4. **Generate** — Render MiniJinja templates into source files
+4. **Generate** — Render MiniJinja templates into source files (with protected user code regions preserved across regeneration)
 
 ## Quick start
 
@@ -23,7 +23,7 @@ cd tools/sysml-v2-analyzer
 # Build
 cargo build
 
-# Run all tests (115 tests)
+# Run all tests
 cargo test --workspace
 
 # Lint

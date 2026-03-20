@@ -126,18 +126,18 @@ MiniJinja (Jinja2-compatible) with:
 
 | Document | Purpose |
 |---|---|
-| [decisions.md](decisions.md) | Architecture decision record (7 decisions with rationale) |
+| [decisions.md](decisions.md) | Architecture decision record (D1–D8) |
 | [01-adapter.md](01-adapter.md) | Adapter crate architecture |
 | [02-engine.md](02-engine.md) | Engine crate architecture |
 | [03-domains.md](03-domains.md) | Domain plugin system |
 | [04-cli.md](04-cli.md) | CLI design |
 | [05-implementation-phases.md](05-implementation-phases.md) | Phased implementation tracker |
-| [phase-1-adapter.md](phase-1-adapter.md) | Phase 1: Adapter (COMPLETE) |
-| [phase-2-engine-scaffold.md](phase-2-engine-scaffold.md) | Phase 2: Engine scaffold + domain config |
-| [phase-3-validation.md](phase-3-validation.md) | Phase 3: Validation engine |
-| [phase-4-extraction.md](phase-4-extraction.md) | Phase 4: Extraction engine |
-| [phase-5-codegen.md](phase-5-codegen.md) | Phase 5: Code generation |
-| [phase-6-cli.md](phase-6-cli.md) | Phase 6: CLI |
+| [archive/phase-1-adapter.md](archive/phase-1-adapter.md) | Phase 1: Adapter |
+| [archive/phase-2-engine-scaffold.md](archive/phase-2-engine-scaffold.md) | Phase 2: Engine scaffold + domain config |
+| [archive/phase-3-validation.md](archive/phase-3-validation.md) | Phase 3: Validation engine |
+| [archive/phase-4-extraction.md](archive/phase-4-extraction.md) | Phase 4: Extraction engine |
+| [archive/phase-5-codegen.md](archive/phase-5-codegen.md) | Phase 5: Code generation |
+| [archive/phase-6-cli.md](archive/phase-6-cli.md) | Phase 6: CLI |
 
 ## Archive
 
