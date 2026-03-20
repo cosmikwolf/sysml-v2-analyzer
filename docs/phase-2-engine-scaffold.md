@@ -26,15 +26,30 @@ Dependencies:
 - `serde` + `toml` + `serde_json`
 - `thiserror`
 
+### Create template domain (for engine tests + starter)
+
+```
+domains/template/
+├── domain.toml               # minimal: 2 layers, 1 required metadata
+├── template_library.sysml    # minimal: 1 metadata def, 1 enum
+└── templates/
+    └── rust/
+        └── module.rs.j2      # trivial template
+```
+
+Engine tests use this domain, not the firmware domain. This keeps engine tests domain-agnostic.
+
 ### Create firmware domain
 
 ```
 domains/firmware/
 ├── domain.toml
-├── firmware_library.sysml    # copied from tests/fixtures/
+├── firmware_library.sysml    # authoritative copy (not in tests/fixtures/)
 └── templates/
     └── rust/                 # empty for now, populated in Phase 5
 ```
+
+`firmware_library.sysml` lives here as the authoritative source. The copy in `tests/fixtures/` remains for adapter tests (which are domain-agnostic and don't load domains).
 
 ### Create example sysml.toml
 

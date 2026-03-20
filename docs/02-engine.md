@@ -67,7 +67,7 @@ pub fn validate(
 ) -> ValidationResult;
 ```
 
-Rules have IDs (e.g., `FW001`). The ID prefix comes from the domain config. Severity can be overridden per-project in `sysml.toml`.
+Rules have IDs with engine-defined category prefixes (e.g., `LAYER001`, `META010`, `FSM020`). See [decisions.md D7](decisions.md#d7-domain-agnostic-validation-rule-ids). Severity can be overridden per-project in `sysml.toml`.
 
 ## Extraction engine (`extraction.rs`)
 
@@ -107,6 +107,7 @@ pub struct CodegenContext {
 pub fn generate(
     extraction: &ExtractionResult,
     config: &DomainConfig,
+    language: &str,
     output_dir: &Path,
 ) -> Result<GenerationReport, EngineError>;
 ```

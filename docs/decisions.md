@@ -24,7 +24,7 @@ Decisions that are expensive to reverse. Each entry captures what we decided, wh
 
 **Reconsider if:** syster-base is abandoned, or a breaking change invalidates our adapter approach, or we need KerML features not in the HIR.
 
-**Evidence:** Full evaluation in [`docs/sysml-toolchain/archive/09-evaluation-syster-base.md`](../../docs/sysml-toolchain/archive/09-evaluation-syster-base.md).
+**Evidence:** Full evaluation in [`archive/09-evaluation-syster-base.md`](archive/09-evaluation-syster-base.md).
 
 ---
 

@@ -137,11 +137,24 @@ parts = ["MemoryModel"]    # only require MemoryModel (drop ConcurrencyModel, Er
 
 The engine merges: `domain.toml` defaults ← `sysml.toml` overrides.
 
+## Template domain
+
+A minimal `domains/template/` domain ships with the project. It serves two purposes:
+
+1. **Engine tests** — all engine tests run against the template domain, keeping them domain-agnostic. They don't depend on firmware concepts.
+2. **Starter for new domains** — copy `domains/template/`, rename, and customize.
+
+The template domain has:
+- 2 layers (`upper`, `lower`) with `upper → lower` dependency
+- 1 required metadata annotation (`BasicInfo`)
+- Minimal type mappings
+- A single trivial Rust template
+
 ## Adding a new domain
 
-1. Create `domains/<name>/`
-2. Write `domain.toml` with layers, required metadata, type maps
-3. Write `<name>_library.sysml` with metadata definitions
+1. Copy `domains/template/` to `domains/<name>/`
+2. Edit `domain.toml` — define your layers, required metadata, type maps
+3. Write `<name>_library.sysml` with your metadata definitions
 4. Write templates in `templates/<language>/`
 5. In the user's project, set `domain = "<name>"` in `sysml.toml`
 

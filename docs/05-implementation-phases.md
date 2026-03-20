@@ -27,13 +27,14 @@
 
 - [ ] Restructure workspace: remove validate/extract/gencontract/codegen scaffolds
 - [ ] Create `crates/engine/` with module stubs
-- [ ] Create `domains/firmware/domain.toml`
-- [ ] Move `firmware_library.sysml` from fixtures to `domains/firmware/`
+- [ ] Create `domains/template/` — minimal domain for engine tests + starter
+- [ ] Create `domains/firmware/` — firmware domain with `domain.toml` + `firmware_library.sysml`
 - [ ] Implement `domain.rs` — load + merge domain.toml + sysml.toml
 - [ ] Implement `diagnostic.rs` — shared Diagnostic type
 - [ ] Create example `sysml.toml` at workspace root
 - [ ] Update Cargo.toml workspace members
-- [ ] Tests: domain config loading, merging, validation
+- [ ] Update CLI crate to depend on engine instead of old crates
+- [ ] Tests: domain config loading, merging, severity overrides
 
 ## Phase 3: Validation engine
 

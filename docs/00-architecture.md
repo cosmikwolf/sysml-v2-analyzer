@@ -13,42 +13,31 @@ The pipeline is **domain-agnostic at its core**. Domain-specific knowledge (what
 ## System diagram
 
 ```
-                    ┌──────────────────────────┐
-                    │  syster-base (external)   │
-                    │  SysML v2 parser + HIR    │
-                    └────────────┬─────────────┘
-                                 │
-                    ┌────────────┴─────────────┐
-                    │  adapter crate            │
-                    │  Domain-agnostic SysML v2 │
-                    │  query library            │
-                    └────────────┬─────────────┘
-                                 │
-                    ┌────────────┴─────────────┐
-                    │  engine crate             │
-                    │  Domain-agnostic pipeline │
-                    │  framework                │
-                    │  ├── validation engine    │
-                    │  ├── extraction engine    │
-                    │  └── codegen engine       │
-                    └────────────┬─────────────┘
-                                 │
-            ┌────────────────────┼────────────────────┐
-            │                    │                     │
-   ┌────────┴────────┐ ┌────────┴────────┐  ┌────────┴────────┐
-   │ domains/firmware │ │ domains/auto    │  │ domains/...     │
-   │  domain.toml     │ │  domain.toml    │  │  domain.toml    │
-   │  *.sysml library │ │  *.sysml library│  │  *.sysml library│
-   │  templates/      │ │  templates/     │  │  templates/     │
-   └─────────────────┘ └─────────────────┘  └─────────────────┘
-            │
-   ┌────────┴─────────┐
-   │  cli crate        │
-   │  sysml-v2-analyzer│
-   │  Reads sysml.toml │
-   │  → selects domain │
-   │  → runs pipeline  │
-   └──────────────────┘
+   ┌──────────────────────────────────────────────────────────┐
+   │  cli crate (sysml-v2-analyzer binary)                    │
+   │  Reads sysml.toml → selects domain → runs pipeline       │
+   └────────────────────────────┬─────────────────────────────┘
+                                │
+   ┌────────────────────────────┴─────────────────────────────┐
+   │  engine crate                                             │
+   │  Domain-agnostic pipeline framework                       │
+   │  ├── validation engine (layer deps, required metadata,    │
+   │  │                      FSM checks, port compat)          │
+   │  ├── extraction engine (flatten to YAML/JSON)             │
+   │  └── codegen engine (MiniJinja template rendering)        │
+   └───────────┬──────────────────────────┬───────────────────┘
+               │                          │
+   ┌───────────┴───────────┐   ┌──────────┴──────────────────┐
+   │  adapter crate         │   │  domains/<name>/             │
+   │  Domain-agnostic       │   │  ├── domain.toml (config)    │
+   │  SysML v2 query library│   │  ├── *.sysml (metadata lib)  │
+   │  (syster-base wrapper) │   │  └── templates/*.j2           │
+   └───────────┬───────────┘   │                               │
+               │                │  firmware/ auto/ template/ ...│
+   ┌───────────┴───────────┐   └───────────────────────────────┘
+   │  syster-base (external)│
+   │  SysML v2 parser + HIR │
+   └────────────────────────┘
 ```
 
 ## Domain boundary
@@ -79,6 +68,12 @@ tools/sysml-v2-analyzer/
 │   ├── engine/                  # domain-agnostic pipeline framework
 │   └── cli/                     # unified binary
 ├── domains/
+│   ├── template/                # minimal example domain (also used by engine tests)
+│   │   ├── domain.toml
+│   │   ├── template_library.sysml
+│   │   └── templates/
+│   │       └── rust/
+│   │           └── module.rs.j2
 │   └── firmware/                # firmware domain plugin
 │       ├── domain.toml
 │       ├── firmware_library.sysml
@@ -87,7 +82,7 @@ tools/sysml-v2-analyzer/
 │               ├── module.rs.j2
 │               └── ...
 └── tests/
-    └── fixtures/                # SysML v2 test fixtures
+    └── fixtures/                # SysML v2 test fixtures (adapter tests)
 ```
 
 ## Configuration layering
