@@ -26,6 +26,14 @@ FSM021 = "error"
 FSM022 = "warning"
 PORT030 = "error"
 TYPE040 = "warning"
+UI001 = "error"       # Element bounds exceed display resolution
+UI002 = "warning"     # Element overlap without visible_when
+UI003 = "error"       # Font/icon asset reference not found
+UI004 = "error"       # Data binding references non-existent module
+UI005 = "warning"     # Indicator color not achievable by LED hardware
+UI006 = "error"       # Gesture device reference not found
+UI007 = "error"       # Screen display reference not found
+UI008 = "error"       # Indicator LED reference not found
 
 [source]
 root = "src"

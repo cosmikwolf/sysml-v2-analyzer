@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a Rust workspace that reads SysML v2 specs and transforms them through a domain-agnostic pipeline: parse → validate → extract → audit. See `docs/00-architecture.md` for the full system diagram.
+This is a Rust workspace that reads SysML v2 specs and transforms them through a domain-agnostic pipeline: parse → validate → extract → audit. Validation includes layer dependencies, required metadata, FSM well-formedness, and UI structural checks (UI001-008). See `docs/00-architecture.md` for the full system diagram.
 
 ## Workspace structure
 
@@ -29,7 +29,7 @@ cargo clippy --workspace         # lint — must be clean
 | File | Purpose |
 |---|---|
 | `docs/00-architecture.md` | System diagram, crate roles, data flow |
-| `docs/decisions.md` | Architecture Decision Records (D1–D10) |
+| `docs/decisions.md` | Architecture Decision Records (D1–D11) |
 | `docs/05-implementation-phases.md` | Phase checklist with status tracking |
 | `docs/archive/phase-{1..6}-*.md` | Detailed spec for each phase (archived) |
 

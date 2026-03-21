@@ -10,6 +10,8 @@
 | 4 | Extraction engine | COMPLETE | [phase-4-extraction.md](archive/phase-4-extraction.md) |
 | 5 | Code generation engine | COMPLETE | [phase-5-codegen.md](archive/phase-5-codegen.md) |
 | 6 | CLI | COMPLETE | [phase-6-cli.md](archive/phase-6-cli.md) |
+| 7 | Audit engine | COMPLETE | — |
+| 8 | UI validation + extraction | COMPLETE | — |
 
 ## Phase 1: Adapter crate — COMPLETE
 
@@ -93,3 +95,20 @@ Code generation was replaced by the audit-driven workflow. See D9 in `decisions.
 - [x] Text and JSON output formats for audit results
 - [x] `snake_case` utility moved to `util.rs`
 - [x] Tests: 16 unit tests (code_parser, source_map, compare) + 2 extraction param tests
+
+## Phase 8: UI validation + extraction — COMPLETE
+
+- [x] Extended `firmware_library.sysml` with 15 enum definitions (DisplayType, InputType, ElementKind, etc.) + 11 metadata definitions (@Display, @Input, @Screen, @Element, @Indicator, @IndicatorState, etc.)
+- [x] Added UI validation rules in `validation/ui.rs`:
+  - UI001 (display resolution) — width/height must be positive integers
+  - UI002 (element bounds) — element x/y/w/h within display resolution
+  - UI003 (font reference) — font names must match a declared @Font
+  - UI004 (icon reference) — icon names must match a declared @Icon
+  - UI005 (data binding module) — binding_module must reference an extracted module
+  - UI006 (indicator LED reference) — led_id must match a declared @LED
+  - UI007 (screen reference in navigation) — transition targets must be declared @Screen parts
+  - UI008 (input reference in navigation) — input triggers must match declared @Input parts
+- [x] Added UI extraction types (`ExtractedUI`, `ExtractedDisplay`, `ExtractedInput`, `ExtractedScreen`, `ExtractedElement`, `ExtractedIndicator`, `ExtractedIndicatorState`, `ExtractedFont`, `ExtractedIcon`) in `extraction/types.rs`
+- [x] Added `extract_ui()` function in `extraction/mod.rs`
+- [x] Updated `domains/firmware/domain.toml` with UI rule severities (UI001-008 all default to Error)
+- [x] Added test fixtures: `ui_hardware.sysml` (valid UI spec), `ui_bad_bounds.sysml` (out-of-bounds elements), `ui_bad_refs.sysml` (invalid references)

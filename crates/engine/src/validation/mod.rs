@@ -13,6 +13,7 @@ mod fsm;
 mod layers;
 mod metadata;
 mod ports;
+mod ui;
 mod workspace_rules;
 
 /// Result of running validation on a workspace.
@@ -22,6 +23,7 @@ pub struct ValidationResult {
     pub parts_checked: usize,
     pub state_machines_checked: usize,
     pub connections_checked: usize,
+    pub ui_elements_checked: usize,
 }
 
 /// Validate a workspace against domain configuration rules.
@@ -50,6 +52,10 @@ pub fn validate(workspace: &SysmlWorkspace, config: &DomainConfig) -> Validation
     let (layer_diags, layer_parts, layer_conns) = layers::check_layer_deps(workspace, config);
     diagnostics.extend(layer_diags);
 
+    // UI well-formedness
+    let (ui_diags, ui_elements_checked) = ui::check_ui_wellformedness(workspace, config);
+    diagnostics.extend(ui_diags);
+
     let parts_checked = meta_parts.max(layer_parts);
     let connections_checked = port_conns.max(layer_conns);
 
@@ -58,6 +64,7 @@ pub fn validate(workspace: &SysmlWorkspace, config: &DomainConfig) -> Validation
         parts_checked,
         state_machines_checked,
         connections_checked,
+        ui_elements_checked,
     }
 }
 

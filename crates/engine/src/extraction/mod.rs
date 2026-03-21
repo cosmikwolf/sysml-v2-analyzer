@@ -8,10 +8,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use sysml_v2_adapter::connection_resolver::resolve_connections;
-use sysml_v2_adapter::metadata_extractor::extract_metadata;
+use sysml_v2_adapter::metadata_extractor::{extract_all_metadata, extract_metadata};
 use sysml_v2_adapter::state_machine_extractor::extract_state_machines;
 use sysml_v2_adapter::workspace::extract_definition_body;
-use sysml_v2_adapter::{ConnectionKind, SysmlWorkspace, SymbolKind};
+use sysml_v2_adapter::{
+    ConnectionKind, MetadataAnnotation, MetadataValue, SysmlWorkspace, SymbolKind,
+};
 
 use crate::diagnostic::Severity;
 use crate::domain::DomainConfig;
@@ -146,6 +148,8 @@ pub fn extract(
 
     let dependency_graph = build_dependency_graph(workspace);
 
+    let ui = extract_ui(workspace);
+
     Ok(ExtractionResult {
         modules,
         architecture: ExtractedArchitecture {
@@ -153,6 +157,7 @@ pub fn extract(
             modules: module_summaries,
             dependency_graph,
         },
+        ui,
     })
 }
 
@@ -348,6 +353,372 @@ fn parse_action_parameter(line: &str) -> Option<ActionParameter> {
     })
 }
 
+// ── UI metadata helpers ─────────────────────────────────────────────
+
+/// Extract a string field value from a metadata annotation.
+fn ui_get_string(annotation: &MetadataAnnotation, field_name: &str) -> Option<String> {
+    annotation.fields.iter().find_map(|f| {
+        if f.name == field_name {
+            match &f.value {
+                MetadataValue::String(s) => Some(s.clone()),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+}
+
+/// Extract an integer field value from a metadata annotation.
+fn ui_get_integer(annotation: &MetadataAnnotation, field_name: &str) -> Option<i64> {
+    annotation.fields.iter().find_map(|f| {
+        if f.name == field_name {
+            match &f.value {
+                MetadataValue::Integer(n) => Some(*n),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+}
+
+/// Extract a boolean field value from a metadata annotation.
+fn ui_get_bool(annotation: &MetadataAnnotation, field_name: &str) -> Option<bool> {
+    annotation.fields.iter().find_map(|f| {
+        if f.name == field_name {
+            match &f.value {
+                MetadataValue::Boolean(b) => Some(*b),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+}
+
+/// Extract the variant name from an enum reference field.
+fn ui_get_enum_variant(annotation: &MetadataAnnotation, field_name: &str) -> Option<String> {
+    annotation.fields.iter().find_map(|f| {
+        if f.name == field_name {
+            match &f.value {
+                MetadataValue::EnumRef { variant, .. } => Some(variant.clone()),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+}
+
+/// Extract string values from a tuple field.
+fn ui_get_tuple_strings(annotation: &MetadataAnnotation, field_name: &str) -> Vec<String> {
+    annotation
+        .fields
+        .iter()
+        .find_map(|f| {
+            if f.name == field_name {
+                match &f.value {
+                    MetadataValue::Tuple(values) => Some(
+                        values
+                            .iter()
+                            .filter_map(|v| match v {
+                                MetadataValue::String(s) => Some(s.clone()),
+                                _ => None,
+                            })
+                            .collect(),
+                    ),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default()
+}
+
+// ── UI extraction ───────────────────────────────────────────────────
+
+/// Extract UI specification from the workspace.
+///
+/// Scans all parts for UI metadata annotations (@DisplayHardware, @InputDevice,
+/// @LedHardware, @Gesture, @FontAsset, @IconAsset, @Screen, @IndicatorBinding,
+/// @Navigation) and builds an `ExtractedUI` structure.
+///
+/// Returns `None` if no UI-related parts are found.
+fn extract_ui(workspace: &SysmlWorkspace) -> Option<ExtractedUI> {
+    let mut displays = Vec::new();
+    let mut input_devices = Vec::new();
+    let mut leds = Vec::new();
+    let mut gestures = Vec::new();
+    let mut fonts = Vec::new();
+    let mut icons = Vec::new();
+    let mut screens = Vec::new();
+    let mut indicators = Vec::new();
+    let mut timing_defaults: Option<ExtractedTimingDefaults> = None;
+    let mut navigation: Option<ExtractedNavigation> = None;
+    let mut found_any = false;
+
+    // Phase 1: Scan all PartDefinition symbols for UI metadata.
+    for (file, sym) in workspace.all_symbols() {
+        if sym.kind != SymbolKind::PartDefinition {
+            continue;
+        }
+
+        let annotations = extract_metadata(file, sym);
+
+        for ann in &annotations {
+            match ann.name.as_str() {
+                "DisplayHardware" => {
+                    found_any = true;
+                    displays.push(ExtractedDisplay {
+                        name: sym.name.to_string(),
+                        display_type: ui_get_enum_variant(ann, "type"),
+                        driver: ui_get_string(ann, "driver"),
+                        width: ui_get_integer(ann, "width").unwrap_or(0) as u32,
+                        height: ui_get_integer(ann, "height").unwrap_or(0) as u32,
+                        color_depth: ui_get_enum_variant(ann, "colorDepth"),
+                        interface: ui_get_enum_variant(ann, "interface"),
+                        orientation: ui_get_string(ann, "orientation"),
+                        module: ui_get_string(ann, "module"),
+                    });
+                }
+                "InputDevice" => {
+                    found_any = true;
+                    input_devices.push(ExtractedInputDevice {
+                        name: sym.name.to_string(),
+                        input_type: ui_get_enum_variant(ann, "type"),
+                        active: ui_get_enum_variant(ann, "active"),
+                        has_button: ui_get_bool(ann, "hasButton").unwrap_or(false),
+                        detents: ui_get_integer(ann, "detents").map(|n| n as u32),
+                        module: ui_get_string(ann, "module"),
+                    });
+                }
+                "LedHardware" => {
+                    found_any = true;
+                    leds.push(ExtractedLed {
+                        name: sym.name.to_string(),
+                        led_type: ui_get_enum_variant(ann, "type"),
+                        colors: ui_get_tuple_strings(ann, "colors"),
+                        module: ui_get_string(ann, "module"),
+                    });
+                }
+                "Gesture" => {
+                    found_any = true;
+                    gestures.push(ExtractedGesture {
+                        name: sym.name.to_string(),
+                        device: ui_get_string(ann, "device"),
+                        trigger: ui_get_enum_variant(ann, "trigger"),
+                        window_ms: ui_get_integer(ann, "window_ms").map(|n| n as u32),
+                    });
+                }
+                "FontAsset" => {
+                    found_any = true;
+                    fonts.push(ExtractedFont {
+                        name: sym.name.to_string(),
+                        family: ui_get_string(ann, "family"),
+                        size: ui_get_integer(ann, "size").unwrap_or(0) as u32,
+                        source: ui_get_enum_variant(ann, "source"),
+                        file: ui_get_string(ann, "file")
+                            .filter(|s| !s.is_empty()),
+                    });
+                }
+                "IconAsset" => {
+                    found_any = true;
+                    icons.push(ExtractedIcon {
+                        name: sym.name.to_string(),
+                        width: ui_get_integer(ann, "width").unwrap_or(0) as u32,
+                        height: ui_get_integer(ann, "height").unwrap_or(0) as u32,
+                        source: ui_get_enum_variant(ann, "source"),
+                        format: ui_get_enum_variant(ann, "format"),
+                        file: ui_get_string(ann, "file")
+                            .filter(|s| !s.is_empty()),
+                    });
+                }
+                "Screen" => {
+                    found_any = true;
+                    let display = ui_get_string(ann, "display");
+                    let refresh_mode = ui_get_enum_variant(ann, "refreshMode");
+                    let poll_interval_ms =
+                        ui_get_integer(ann, "pollInterval_ms").map(|n| n as u32);
+
+                    // Collect @Element annotations in this part's body
+                    let elements = extract_ui_elements(&annotations);
+
+                    screens.push(ExtractedScreen {
+                        name: sym.name.to_string(),
+                        display,
+                        refresh_mode,
+                        poll_interval_ms,
+                        elements,
+                    });
+                }
+                "IndicatorBinding" => {
+                    found_any = true;
+                    let led = ui_get_string(ann, "led");
+                    let module = ui_get_string(ann, "module");
+                    let field = ui_get_string(ann, "field");
+
+                    // Collect @IndicatorState annotations in this part's body
+                    let states: Vec<ExtractedIndicatorState> = annotations
+                        .iter()
+                        .filter(|a| a.name == "IndicatorState")
+                        .map(|a| ExtractedIndicatorState {
+                            name: ui_get_string(a, "name"),
+                            color: ui_get_string(a, "color"),
+                            pattern: ui_get_enum_variant(a, "pattern"),
+                            period_ms: ui_get_integer(a, "period_ms").map(|n| n as u32),
+                            duty_percent: ui_get_integer(a, "duty_percent").map(|n| n as u32),
+                        })
+                        .collect();
+
+                    indicators.push(ExtractedIndicator {
+                        name: sym.name.to_string(),
+                        led,
+                        module,
+                        field,
+                        states,
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Phase 2: Scan for package-level @GestureTimingDefaults.
+    for (file, _) in workspace.all_symbols() {
+        let all_annotations = extract_all_metadata(file);
+        for ann in &all_annotations {
+            if ann.name == "GestureTimingDefaults" {
+                found_any = true;
+                timing_defaults = Some(ExtractedTimingDefaults {
+                    debounce_ms: ui_get_integer(ann, "debounce_ms").unwrap_or(0) as u32,
+                    long_press_ms: ui_get_integer(ann, "long_press_ms").unwrap_or(0) as u32,
+                    double_tap_ms: ui_get_integer(ann, "double_tap_ms").unwrap_or(0) as u32,
+                    combo_window_ms: ui_get_integer(ann, "combo_window_ms").unwrap_or(0) as u32,
+                    sequence_timeout_ms: ui_get_integer(ann, "sequence_timeout_ms").unwrap_or(0)
+                        as u32,
+                });
+                break;
+            }
+        }
+        if timing_defaults.is_some() {
+            break;
+        }
+    }
+
+    // Phase 3: Scan state machines for @Navigation metadata.
+    for (file, sym) in workspace.all_symbols() {
+        if sym.kind != SymbolKind::PartDefinition {
+            continue;
+        }
+
+        let annotations = extract_metadata(file, sym);
+        let has_navigation = annotations.iter().any(|a| a.name == "Navigation");
+
+        if has_navigation {
+            found_any = true;
+            // Extract state machines from this part and use them for navigation
+            let state_machines = extract_state_machines(file, sym);
+
+            if let Some(fsm) = state_machines.first() {
+                let nav_screens: Vec<String> =
+                    fsm.states.iter().map(|s| s.name.clone()).collect();
+                let nav_transitions: Vec<ExtractedTransition> = fsm
+                    .transitions
+                    .iter()
+                    .map(|t| ExtractedTransition {
+                        name: t.name.clone(),
+                        from_state: t.from_state.clone(),
+                        to_state: t.to_state.clone(),
+                        event: t.event.clone(),
+                        guard: t.guard.clone(),
+                        action: t.action.clone(),
+                    })
+                    .collect();
+
+                navigation = Some(ExtractedNavigation {
+                    initial_screen: fsm.initial_state.clone(),
+                    screens: nav_screens,
+                    transitions: nav_transitions,
+                });
+            }
+        }
+    }
+
+    if !found_any {
+        return None;
+    }
+
+    // Sort collections for deterministic output.
+    displays.sort_by(|a, b| a.name.cmp(&b.name));
+    input_devices.sort_by(|a, b| a.name.cmp(&b.name));
+    leds.sort_by(|a, b| a.name.cmp(&b.name));
+    gestures.sort_by(|a, b| a.name.cmp(&b.name));
+    fonts.sort_by(|a, b| a.name.cmp(&b.name));
+    icons.sort_by(|a, b| a.name.cmp(&b.name));
+    screens.sort_by(|a, b| a.name.cmp(&b.name));
+    indicators.sort_by(|a, b| a.name.cmp(&b.name));
+
+    Some(ExtractedUI {
+        displays,
+        input_devices,
+        leds,
+        gestures,
+        timing_defaults,
+        fonts,
+        icons,
+        screens,
+        indicators,
+        navigation,
+    })
+}
+
+/// Extract @Element annotations from a part's metadata list and convert to ExtractedElements.
+fn extract_ui_elements(annotations: &[MetadataAnnotation]) -> Vec<ExtractedElement> {
+    annotations
+        .iter()
+        .filter(|a| a.name == "Element")
+        .enumerate()
+        .map(|(idx, ann)| {
+            let visible_module = ui_get_string(ann, "visible_module");
+            let visible_field = ui_get_string(ann, "visible_field");
+            let visible_op = ui_get_string(ann, "visible_op");
+            let visible_value = ui_get_string(ann, "visible_value");
+
+            let visible_when = if visible_module.is_some() || visible_field.is_some() {
+                Some(ExtractedVisibility {
+                    module: visible_module,
+                    field: visible_field,
+                    op: visible_op,
+                    value: visible_value,
+                })
+            } else {
+                None
+            };
+
+            ExtractedElement {
+                id: format!("element_{}", idx),
+                element_type: ui_get_enum_variant(ann, "type"),
+                x: ui_get_integer(ann, "x").unwrap_or(0) as i32,
+                y: ui_get_integer(ann, "y").unwrap_or(0) as i32,
+                width: ui_get_integer(ann, "width").unwrap_or(0) as u32,
+                height: ui_get_integer(ann, "height").unwrap_or(0) as u32,
+                font: ui_get_string(ann, "font"),
+                icon: ui_get_string(ann, "icon"),
+                align: ui_get_enum_variant(ann, "align"),
+                scroll: ui_get_bool(ann, "scroll").unwrap_or(false),
+                truncate: ui_get_bool(ann, "truncate").unwrap_or(false),
+                binding_module: ui_get_string(ann, "binding_module"),
+                binding_field: ui_get_string(ann, "binding_field"),
+                range_min: ui_get_integer(ann, "range_min").map(|n| n as i32),
+                range_max: ui_get_integer(ann, "range_max").map(|n| n as i32),
+                visible_when,
+            }
+        })
+        .collect()
+}
+
 /// Build the dependency graph from PartUsage → PartDefinition relationships.
 fn build_dependency_graph(workspace: &SysmlWorkspace) -> Vec<(String, String)> {
     // Collect all PartDefinition names
@@ -452,6 +823,7 @@ mod tests {
             parts_checked: 0,
             state_machines_checked: 0,
             connections_checked: 0,
+            ui_elements_checked: 0,
         }
     }
 
@@ -469,6 +841,7 @@ mod tests {
             parts_checked: 1,
             state_machines_checked: 0,
             connections_checked: 0,
+            ui_elements_checked: 0,
         }
     }
 
@@ -486,6 +859,7 @@ mod tests {
             parts_checked: 1,
             state_machines_checked: 0,
             connections_checked: 0,
+            ui_elements_checked: 0,
         }
     }
 

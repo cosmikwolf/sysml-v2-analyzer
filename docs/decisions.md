@@ -252,3 +252,30 @@ Domains configure severity per rule ID in `domain.toml`. Projects override sever
 - **Custom parser** — unnecessary given tree-sitter's maturity
 
 **Reconsider if:** Tree-sitter's Rust bindings have breaking API changes that are expensive to track, or if a single-language project doesn't need multi-language support.
+
+---
+
+## D11 — UI modeling in SysML v2
+
+**Date:** 2026-03-20
+**Status:** Accepted
+
+**Context:** Firmware UI specs (displays, inputs, screens, navigation, LED indicators) were previously authored as YAML files in `spec/ui/`. The rest of the specification system uses SysML v2 with metadata annotations. This created a format split that prevented analyzer validation of UI specs.
+
+**Decision:** Model firmware UI specs using SysML v2 metadata annotations and state machines within a `UI` package.
+
+**Why:**
+- Unifies all specs under SysML v2 (eliminates YAML/SysML split)
+- Navigation modeled as a state machine gets FSM020-025 validation rules for free (initial state, reachability, dead-ends, determinism)
+- LED indicators modeled as state machines with `@IndicatorState` metadata naturally represent pattern transitions
+- Screen elements as attributes with `@Element` metadata are less verbose than child parts while sufficient for codegen
+- Data bindings as metadata fields (`@Element { binding_module = "..."; }`) are simpler than SysML connections and already supported by the metadata extractor
+- 8 new UI validation rules (UI001-008) provide deterministic structural checks that previously required LLM reasoning
+
+**Rejected alternatives:**
+- **Keep YAML for UI specs** — creates format split, no analyzer validation
+- **Screen elements as child parts** — too verbose for no practical benefit
+- **Navigation as declarative action table** — loses FSM validation benefits
+- **Data bindings as SysML connections** — requires port definitions for every screen element
+
+**Reconsider if:** UI specs grow complex enough to need features (constraint expressions, parametric models) that metadata annotations cannot express.

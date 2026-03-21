@@ -303,8 +303,9 @@ fn cmd_validate(cli: &Cli) -> Result<ExitCode, CliError> {
             }
             if !cli.quiet {
                 println!(
-                    "\nValidated {} part(s), {} state machine(s)",
+                    "\nValidated {} part(s), {} state machine(s), {} UI element(s)",
                     result.parts_checked, result.state_machines_checked,
+                    result.ui_elements_checked,
                 );
                 println!(
                     "Result: {} error(s), {} warning(s)",
@@ -336,6 +337,7 @@ fn cmd_validate(cli: &Cli) -> Result<ExitCode, CliError> {
                     "parts_checked": result.parts_checked,
                     "state_machines_checked": result.state_machines_checked,
                     "connections_checked": result.connections_checked,
+                    "ui_elements_checked": result.ui_elements_checked,
                     "errors": error_count,
                     "warnings": warning_count,
                 }

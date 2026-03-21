@@ -11,7 +11,7 @@ A Rust toolchain for analyzing SysML v2 specifications and auditing source code 
 The analyzer reads SysML v2 specifications and transforms them through a pipeline. Domain knowledge (what to validate, what to extract) comes from a `domains/` directory — not compiled into the binary.
 
 1. **Parse** — Load `.sysml` files via syster-base into a queryable workspace
-2. **Validate** — Check domain rules (layer dependencies, required metadata, FSM well-formedness)
+2. **Validate** — Check domain rules (layer dependencies, required metadata, FSM well-formedness, UI structural checks)
 3. **Extract** — Flatten SysML models into YAML/JSON
 4. **Audit** — Compare spec against hand-written source code using tree-sitter, reporting matches, mismatches, missing items, and uncovered code
 
@@ -148,6 +148,9 @@ Fixtures in `tests/fixtures/` model a Bluetooth audio sink firmware system:
 | `i2s_output.sysml` | Simple driver module |
 | `status_led.sysml` | LED controller with LedFSM (3 states, 6 transitions) |
 | `large_model.sysml` | 50-module stress test (1075 lines) |
+| `ui_hardware.sysml` | UI spec: displays, inputs, screens, elements, indicators (valid) |
+| `ui_bad_bounds.sysml` | UI spec with out-of-bounds elements for UI002 testing |
+| `ui_bad_refs.sysml` | UI spec with invalid references for UI003-008 testing |
 | `malformed.sysml` | Intentional errors for error recovery testing |
 
 ## Build target
